@@ -1,0 +1,50 @@
+# 依赖
+node_modules/
+
+# 构建产物
+out/
+dist/
+release/
+
+# 环境变量 / 密钥（切勿提交真实密钥）
+.env
+.env.*
+!.env.example
+
+# 数据库 / 用户数据
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+
+# 日志
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# .NET 编译产物（build/wrapper 的 7za 包装器）
+build/wrapper/bin/
+build/wrapper/obj/
+build/wrapper/out/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.iml
+.idea/
+.vscode/
+
+# 本地笔记文件（不提交）
+*.local.md
+
+# 帮助文档生成物（node scripts/build-help.js 自动生成）
+help/help.tmhelp
+screenshot.png
+
+# 界面截图（含本地真实项目数据，不公开）
+screenshots/
+
+# 本地 npm 镜像配置（不提交，避免强制他人走 npmmirror）
+.npmrc

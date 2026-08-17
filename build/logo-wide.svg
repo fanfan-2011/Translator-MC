@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160">
+  <!-- 图形：折叠卡片（缩放 0.62） -->
+  <g transform="translate(60,0) scale(0.62)">
+    <!-- 顶面（绿，A） -->
+    <polygon points="50,80 206,80 194,124 62,124" fill="#4CAF50"/>
+    <polygon points="50,80 206,80 202,88 54,88" fill="#ffffff" opacity="0.16"/>
+    <polygon points="62,124 194,124 192,118 64,118" fill="#388E3C" opacity="0.55"/>
+    <!-- 正面（深色，文） -->
+    <polygon points="62,124 194,124 194,184 62,184" fill="#202124"/>
+    <polygon points="62,178 194,178 194,184 62,184" fill="#2d2e31"/>
+    <!-- A -->
+    <text x="128" y="112" font-family="Arial, sans-serif" font-size="42" font-style="italic" font-weight="700" fill="#F5F5F5" text-anchor="middle" transform="rotate(-7 128 98)">A</text>
+    <!-- 双向箭头 -->
+    <g stroke="#F5F5F5" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="112" y1="124" x2="144" y2="124"/>
+      <path d="M120,118 l-8,6 l8,6"/>
+      <path d="M136,118 l8,6 l-8,6"/>
+    </g>
+    <!-- 文 -->
+    <text x="128" y="170" font-family="'Microsoft YaHei','PingFang SC',sans-serif" font-size="42" font-weight="600" fill="#F5F5F5" text-anchor="middle">文</text>
+  </g>
+
+  <!-- 文字 -->
+  <text x="230" y="94" font-family="'Segoe UI','Microsoft YaHei',sans-serif" font-size="46" font-weight="600" fill="#202124">Translator </text>
+  <text x="460" y="94" font-family="'Segoe UI','Microsoft YaHei',sans-serif" font-size="46" font-weight="600" fill="#4CAF50">MC</text>
+</svg>

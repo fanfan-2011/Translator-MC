@@ -23,6 +23,7 @@ let db: Database | null = null
 let dbPath = ''
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let dirty = false
+let saveChain: Promise<void> = Promise.resolve()
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS projects (
@@ -108,32 +109,42 @@ function requireDb(): Database {
   return db
 }
 
-export function persist(): void {
-  dirty = true
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(
-    async () => {
-      if (!db || !dirty) return
-      dirty = false
+// 原子写入：先写临时文件再替换，即使崩溃/断电也不会留下半写的损坏文件
+async function writeDbAtomic(data: Buffer): Promise<void> {
+  const tmp = `${dbPath}.tmp`
+  await fs.writeFile(tmp, data)
+  await fs.rename(tmp, dbPath)
+}
+
+// 保存队列：所有写入串行执行，避免并发写同一文件导致数据库损坏
+function enqueueSave(data: Buffer): Promise<void> {
+  saveChain = saveChain
+    .catch(() => {})
+    .then(async () => {
       try {
-        const data = db.export()
-        await fs.writeFile(dbPath, Buffer.from(data))
+        await writeDbAtomic(data)
       } catch (e) {
         logger.error(`数据库保存失败: ${e}`)
       }
-    },
-    200
-  )
+    })
+  return saveChain
+}
+
+export function persist(): void {
+  dirty = true
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    if (!db || !dirty) return
+    dirty = false
+    const data = db.export()
+    void enqueueSave(Buffer.from(data))
+  }, 200)
 }
 
 export async function persistNow(): Promise<void> {
   if (!db) return
-  try {
-    const data = db.export()
-    await fs.writeFile(dbPath, Buffer.from(data))
-  } catch (e) {
-    logger.error(`数据库保存失败: ${e}`)
-  }
+  const data = db.export()
+  await enqueueSave(Buffer.from(data))
 }
 
 function rows<T>(sql: string, params: unknown[] = []): T[] {

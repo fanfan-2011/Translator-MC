@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AppSettings, EntryStatus, GlossaryEntry, PackageInfo, Project, TranslationEntry } from '@shared/types'
-import { api, type TranslateProgress } from '../api'
+import { api, type TranslateProgress, type ReviewProgress } from '../api'
 import { DEFAULT_LLM_CONFIG, type LLMConfig } from '@shared/types'
 
 export type View = 'home' | 'workspace' | 'glossary' | 'memory' | 'history' | 'logs'
@@ -19,7 +19,7 @@ interface AppState {
   settings: AppSettings
   // task
   task: TranslateProgress | null
-  reviewing: { done: number; total: number } | null
+  reviewing: ReviewProgress | null
   // modals
   settingsOpen: boolean
   exportOpen: boolean
@@ -40,7 +40,7 @@ interface AppState {
   loadSettings: () => Promise<void>
 
   setTask: (t: TranslateProgress | null) => void
-  setReviewing: (r: { done: number; total: number } | null) => void
+  setReviewing: (r: ReviewProgress | null) => void
   setSettingsOpen: (v: boolean) => void
   setExportOpen: (v: boolean) => void
   setImportOpen: (v: boolean) => void

@@ -91,9 +91,12 @@ export const api = {
     window.api.onTranslateDone(cb as (d: unknown) => void),
 
   startReview: (projectId: string): Promise<unknown> => window.api.startReview(projectId),
-  onReviewProgress: (cb: (data: { done: number; total: number }) => void): (() => void) =>
+  pauseReview: (taskId: string): Promise<void> => window.api.pauseReview(taskId) as Promise<void>,
+  resumeReview: (taskId: string): Promise<void> => window.api.resumeReview(taskId) as Promise<void>,
+  cancelReview: (taskId: string): Promise<void> => window.api.cancelReview(taskId) as Promise<void>,
+  onReviewProgress: (cb: (data: ReviewProgress) => void): (() => void) =>
     window.api.onReviewProgress(cb as (d: unknown) => void),
-  onReviewDone: (cb: (data: { reviewed: number; needsReview: number }) => void): (() => void) =>
+  onReviewDone: (cb: (data: ReviewDone) => void): (() => void) =>
     window.api.onReviewDone(cb as (d: unknown) => void),
 
   exportPreCheck: (projectId: string): Promise<{ count: number; messages: string[] }> =>
@@ -123,6 +126,23 @@ export interface TranslateDone {
   ok: boolean
   translated: number
   reused: number
+  failed: number
+  cancelled: boolean
+  error?: string
+}
+
+export interface ReviewProgress {
+  taskId: string
+  status: string
+  done: number
+  total: number
+  failed: number
+}
+
+export interface ReviewDone {
+  ok: boolean
+  reviewed: number
+  needsReview: number
   failed: number
   cancelled: boolean
   error?: string

@@ -40,7 +40,13 @@ export function TranslationWorkspace(): JSX.Element {
     const off4 = api.onReviewDone(async (r) => {
       setReviewing(null)
       if (projectId) await loadProjectData(projectId)
-      toastMsg(`审校完成：${r.reviewed} 条，需人工复核 ${r.needsReview} 条`, 'success')
+      if (!r.ok) {
+        toastMsg(r.error ?? '审校失败', 'error')
+      } else if (r.cancelled) {
+        toastMsg(`审校已取消：审校 ${r.reviewed} 条，失败 ${r.failed} 条`, 'info')
+      } else {
+        toastMsg(`审校完成：审校 ${r.reviewed} 条，需人工复核 ${r.needsReview} 条，失败 ${r.failed} 条`, 'success')
+      }
     })
     return () => {
       off1()
@@ -110,7 +116,7 @@ export function TranslationWorkspace(): JSX.Element {
       setSettingsOpen(true)
       return
     }
-    setReviewing({ done: 0, total: 0 })
+    setReviewing({ taskId: '', status: 'running', done: 0, total: 0, failed: 0 })
     await api.startReview(projectId)
   }
 
@@ -254,7 +260,7 @@ function AgentPanel(): JSX.Element {
   const total = isReview ? reviewing!.total || entries.filter((e) => e.targetText).length : task!.total
   const done = isReview ? reviewing!.done : task!.done
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const status = isReview ? 'running' : task!.status
+  const status = isReview ? reviewing!.status : task!.status
 
   const steps = [
     { label: '文件分析', done: true },
@@ -295,6 +301,13 @@ function AgentPanel(): JSX.Element {
         </div>
       ) : null}
 
+      {isReview && reviewing!.failed ? (
+        <div className="mt-4 flex items-center gap-1.5 rounded-md bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          {reviewing!.failed} 条审校失败
+        </div>
+      ) : null}
+
       {!isReview ? (
         <div className="mt-auto flex gap-2 pt-4">
           {task?.status === 'paused' ? (
@@ -310,7 +323,22 @@ function AgentPanel(): JSX.Element {
             取消
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-auto flex gap-2 pt-4">
+          {reviewing!.status === 'paused' ? (
+            <Button size="sm" variant="primary" onClick={() => void api.resumeReview(reviewing!.taskId)}>
+              继续
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => void api.pauseReview(reviewing!.taskId)}>
+              暂停
+            </Button>
+          )}
+          <Button size="sm" variant="danger" onClick={() => void api.cancelReview(reviewing!.taskId)}>
+            取消
+          </Button>
+        </div>
+      )}
     </aside>
   )
 }

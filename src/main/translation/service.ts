@@ -5,17 +5,8 @@ import { buildSystemPrompt, buildGlossaryBlock, buildUserMessage } from '../llm/
 import { parseTranslations } from '../llm/json-repair'
 import { validateAll } from './validate'
 import { RateLimiter, Semaphore, withRetry } from './rate'
+import { registerTaskController, unregisterTaskController, TaskController } from './task-control'
 import { logger } from '../logger'
-
-interface ActiveTask {
-  taskId: string
-  projectId: string
-  cancel: boolean
-  pause: boolean
-  pauseWaiters: (() => void)[]
-}
-
-const active = new Map<string, ActiveTask>()
 
 export interface TranslateOptions {
   reTranslate?: boolean
@@ -47,43 +38,6 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out
 }
 
-async function checkPause(task: ActiveTask): Promise<void> {
-  while (task.pause && !task.cancel) {
-    await new Promise<void>((resolve) => task.pauseWaiters.push(resolve))
-  }
-}
-
-export function pauseTask(taskId: string): void {
-  const t = active.get(taskId)
-  if (t) {
-    t.pause = true
-    db.updateTask(taskId, { status: 'paused' })
-    logger.info(`任务 ${taskId} 已暂停`)
-  }
-}
-
-export function resumeTask(taskId: string): void {
-  const t = active.get(taskId)
-  if (t) {
-    t.pause = false
-    const waiters = t.pauseWaiters.splice(0)
-    for (const w of waiters) w()
-    db.updateTask(taskId, { status: 'running' })
-    logger.info(`任务 ${taskId} 已继续`)
-  }
-}
-
-export function cancelTask(taskId: string): void {
-  const t = active.get(taskId)
-  if (t) {
-    t.cancel = true
-    t.pause = false
-    const waiters = t.pauseWaiters.splice(0)
-    for (const w of waiters) w()
-    logger.info(`任务 ${taskId} 已取消`)
-  }
-}
-
 export async function translateProject(
   projectId: string,
   config: LLMConfig,
@@ -111,8 +65,13 @@ export async function translateProject(
   }
 
   const task = db.createTask(projectId, 'translate', eligible.length)
-  const activeTask: ActiveTask = { taskId: task.id, projectId, cancel: false, pause: false, pauseWaiters: [] }
-  active.set(task.id, activeTask)
+  const activeTask: TaskController = new TaskController({
+    taskId: task.id,
+    onStateChange: (status) => {
+      db.updateTask(task.id, { status })
+    }
+  })
+  registerTaskController(activeTask)
   db.updateTask(task.id, { status: 'running' })
 
   let done = 0
@@ -124,7 +83,7 @@ export async function translateProject(
   const emit = (): void => {
     onProgress?.({
       taskId: task.id,
-      status: activeTask.pause ? 'paused' : 'running',
+      status: activeTask.paused ? 'paused' : 'running',
       done,
       total: eligible.length,
       failed,
@@ -171,8 +130,8 @@ export async function translateProject(
   try {
     // Phase 1: reuse from TM / glossary
     for (const e of toReuse) {
-      if (activeTask.cancel) break
-      await checkPause(activeTask)
+      if (activeTask.cancelled) break
+      await activeTask.checkPause()
       const mem = memoryMap.get(e.sourceText)
       const gl = glossaryExact.get(e.sourceText)
       const val = mem ?? gl ?? ''
@@ -199,12 +158,12 @@ export async function translateProject(
     }
 
     const processBatch = async (batch: TranslationEntry[]): Promise<void> => {
-      await checkPause(activeTask)
-      if (activeTask.cancel) return
+      await activeTask.checkPause()
+      if (activeTask.cancelled) return
       await semaphore.acquire()
       try {
-        await checkPause(activeTask)
-        if (activeTask.cancel) return
+        await activeTask.checkPause()
+        if (activeTask.cancelled) return
 
         const first = batch[0]
         const { name, type } = packageOf(first)
@@ -266,9 +225,9 @@ export async function translateProject(
     }
 
     const workers = Array.from({ length: Math.max(1, config.concurrency || 1) }, async () => {
-      while (!activeTask.cancel) {
-        await checkPause(activeTask)
-        if (activeTask.cancel) break
+      while (!activeTask.cancelled) {
+        await activeTask.checkPause()
+        if (activeTask.cancelled) break
         const idx = cursor++
         if (idx >= batches.length) break
         await limiter.wait()
@@ -278,17 +237,17 @@ export async function translateProject(
 
     await Promise.all(workers)
 
-    if (activeTask.cancel) cancelled = true
+    if (activeTask.cancelled) cancelled = true
   } catch (err) {
     logger.error(`翻译任务异常: ${err}`)
     db.updateTask(task.id, { status: 'failed', error: err instanceof Error ? err.message : String(err) })
-    active.delete(task.id)
+    unregisterTaskController(task.id)
     return { ok: false, translated, reused, failed, cancelled, error: err instanceof Error ? err.message : String(err) }
   }
 
   const finalStatus = cancelled ? 'cancelled' : failed > 0 && translated === 0 ? 'failed' : 'completed'
   db.updateTask(task.id, { status: finalStatus, done, total: eligible.length, failed })
-  active.delete(task.id)
+  unregisterTaskController(task.id)
   logger.info(`翻译完成: 翻译 ${translated}, 复用 ${reused}, 失败 ${failed}`)
   return { ok: !cancelled, translated, reused, failed, cancelled }
 }

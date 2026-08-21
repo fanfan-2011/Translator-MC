@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ExportOptions, ExportResult } from '@shared/types'
 import { api } from '../../api'
 import { useApp } from '../../stores/app'
@@ -17,6 +17,14 @@ export function ExportModal(): JSX.Element {
   const [preCheck, setPreCheck] = useState<{ count: number; messages: string[] } | null>(null)
   const [exporting, setExporting] = useState(false)
   const [result, setResult] = useState<ExportResult | null>(null)
+  const [projectName, setProjectName] = useState('localized-resource-pack')
+
+  useEffect(() => {
+    if (!projectId) return
+    void api.getProject(projectId).then((p) => {
+      if (p?.name) setProjectName(p.name.replace(/[\\\\/:*?"<>|]/g, '_'))
+    })
+  }, [projectId])
 
   const runPreCheck = async (): Promise<void> => {
     if (!projectId) return
@@ -36,7 +44,7 @@ export function ExportModal(): JSX.Element {
     try {
       const options: ExportOptions = { kind, skipBuiltin, targetLang: targetCode }
       if (kind === 'resourcepack') {
-        const path = await api.chooseExportPath('localized-resource-pack.zip', 'zip')
+        const path = await api.chooseExportPath(`${projectName}transistor.zip`, 'zip')
         if (!path) {
           setExporting(false)
           return

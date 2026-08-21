@@ -77,6 +77,9 @@ const api = {
 
   // review
   startReview: (projectId: string): Promise<unknown> => ipcRenderer.invoke('review:start', projectId),
+  pauseReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:pause', taskId),
+  resumeReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:resume', taskId),
+  cancelReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:cancel', taskId),
   onReviewProgress: (cb: (data: unknown) => void): (() => void) => on('review:progress', cb),
   onReviewDone: (cb: (data: unknown) => void): (() => void) => on('review:done', cb),
 

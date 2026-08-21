@@ -3,7 +3,8 @@ import { dirname, join } from 'path'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import * as db from './db/database'
 import { importFiles, previewPackage } from './package/importer'
-import { translateProject, pauseTask, resumeTask, cancelTask } from './translation/service'
+import { translateProject } from './translation/service'
+import { pauseTask, resumeTask, cancelTask } from './translation/task-control'
 import { reviewProject } from './quality/reviewer'
 import { exportPreCheck, exportProject } from './export/exporter'
 import { llmListModels } from './llm/provider'
@@ -150,11 +151,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('review:start', (event, projectId: string) => {
     const config = loadLlmConfig()
     const sender = event.sender
-    void reviewProject(projectId, config, (done, total) => sender.send('review:progress', { done, total }))
+    void reviewProject(projectId, config, (p) => sender.send('review:progress', p))
       .then((r) => sender.send('review:done', r))
-      .catch((e) => sender.send('review:done', { error: e instanceof Error ? e.message : String(e) }))
+      .catch((e) => sender.send('review:done', { ok: false, error: e instanceof Error ? e.message : String(e) }))
     return { ok: true }
   })
+  ipcMain.handle('review:pause', (_e, taskId: string) => pauseTask(taskId))
+  ipcMain.handle('review:resume', (_e, taskId: string) => resumeTask(taskId))
+  ipcMain.handle('review:cancel', (_e, taskId: string) => cancelTask(taskId))
 
   // ---------- Export ----------
   ipcMain.handle('export:preCheck', (_e, projectId: string) => exportPreCheck(projectId))

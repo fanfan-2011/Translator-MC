@@ -194,7 +194,19 @@ export async function translateProject(
           }
         )
 
-        const translations = parseTranslations(content)
+        // Build the exact set of keys the LLM was asked to translate — used to
+        // filter out spurious flattened dot-path keys produced when models nest
+        // literal dot-key values (e.g. "value.info0.0") as {"value":{"info0":{"0":"..."}}}.
+        const requestedKeys = new Set(batch.map((e) => e.key))
+
+        const rawTranslations = parseTranslations(content)
+        // Strip any keys not explicitly requested. flattenTranslations() may emit
+        // intermediate dot-path segments (prefixes like "value" / "value.info0") that
+        // are not real translation keys and would silently match wrong entries.
+        const translations: Record<string, string> = {}
+        for (const [k, v] of Object.entries(rawTranslations)) {
+          if (requestedKeys.has(k) && typeof v === 'string') translations[k] = v
+        }
 
         for (const entry of batch) {
           const t = translations[entry.key]

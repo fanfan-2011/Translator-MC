@@ -22,6 +22,24 @@ export function isSafeEntryName(name: string): boolean {
   return !norm.split('/').some((p) => p === '..' || p === '')
 }
 
+// 目录模式下的 jar 内文件路径用 <jar>!<entry> 表示（如 mods/x.jar!assets/xenon/lang/en_us.lang）
+const JAR_SPLIT = '!'
+
+function splitJarPath(path: string): { jarPath: string; entry: string } | null {
+  const i = path.indexOf(JAR_SPLIT)
+  if (i > 0) return { jarPath: path.slice(0, i), entry: path.slice(i + 1) }
+  return null
+}
+
+// 语言候选：位于 */lang/ 目录且扩展名是文本格式的条目。只解包这些，避免把字节码/贴图全捞出来。
+const LANG_EXTS = new Set(['lang', 'json', 'json5', 'properties', 'yaml', 'yml', 'toml'])
+function isLangCandidate(entryName: string): boolean {
+  const n = entryName.replace(/\\/g, '/').toLowerCase()
+  if (!n.includes('/lang/')) return false
+  const ext = n.slice(n.lastIndexOf('.') + 1)
+  return LANG_EXTS.has(ext)
+}
+
 class ZipVFS implements VFS {
   private files: Set<string>
   constructor(private zip: AdmZip) {
@@ -61,26 +79,79 @@ function safeJoin(root: string, p: string): string {
 
 class DirVFS implements VFS {
   private files: string[] = []
+  private jarCache = new Map<string, AdmZip>()
   constructor(private root: string) {}
+
   async init(): Promise<void> {
-    this.files = await walk(this.root)
+    const { normal, jars } = await walk(this.root)
+    const all = [...normal]
+    for (const j of jars) {
+      let zip: AdmZip
+      try {
+        zip = this.openJar(j)
+      } catch {
+        continue
+      }
+      let entries: string[] = []
+      try {
+        entries = zip.getEntries().map((e) => e.entryName)
+      } catch {
+        continue
+      }
+      for (const entryName of entries) {
+        if (entryName.endsWith('/')) continue // directories
+        if (!isSafeEntryName(entryName)) continue
+        if (!isLangCandidate(entryName)) continue
+        all.push(`${j}${JAR_SPLIT}${entryName}`)
+      }
+    }
+    this.files = all
   }
+
+  private openJar(relPath: string): AdmZip {
+    let zip = this.jarCache.get(relPath)
+    if (!zip) {
+      zip = new AdmZip(safeJoin(this.root, relPath))
+      this.jarCache.set(relPath, zip)
+    }
+    return zip
+  }
+
   listFiles(): string[] {
     return this.files
   }
   has(path: string): boolean {
     return this.files.includes(path)
   }
+
   readText(path: string): string {
+    const sp = splitJarPath(path)
+    if (sp) {
+      if (!isSafeEntryName(sp.entry)) throw new Error(`非法压缩包路径: ${path}`)
+      return this.openJar(sp.jarPath).readAsText(sp.entry, 'utf8')
+    }
     return require('fs').readFileSync(safeJoin(this.root, path), 'utf8')
   }
   readBuffer(path: string): Buffer {
+    const sp = splitJarPath(path)
+    if (sp) {
+      if (!isSafeEntryName(sp.entry)) throw new Error(`非法压缩包路径: ${path}`)
+      const b = this.openJar(sp.jarPath).readFile(sp.entry)
+      if (!b) throw new Error(`文件不存在于压缩包: ${sp.entry}`)
+      return b as Buffer
+    }
     return require('fs').readFileSync(safeJoin(this.root, path))
   }
 }
 
-async function walk(dir: string): Promise<string[]> {
-  const out: string[] = []
+interface WalkResult {
+  normal: string[]
+  jars: string[]
+}
+
+async function walk(dir: string): Promise<WalkResult> {
+  const normal: string[] = []
+  const jars: string[] = []
   async function rec(d: string): Promise<void> {
     let entries: import('fs').Dirent[]
     try {
@@ -91,11 +162,15 @@ async function walk(dir: string): Promise<string[]> {
     for (const e of entries) {
       const full = join(d, e.name)
       if (e.isDirectory()) await rec(full)
-      else if (e.isFile()) out.push(relative(dir, full).replace(/\\/g, '/'))
+      else if (e.isFile()) {
+        const rel = relative(dir, full).replace(/\\/g, '/')
+        if (/\.(jar|zip)$/i.test(rel)) jars.push(rel)
+        else normal.push(rel)
+      }
     }
   }
   await rec(dir)
-  return out
+  return { normal, jars }
 }
 
 export async function openVfs(sourcePath: string): Promise<VFSOpenResult> {

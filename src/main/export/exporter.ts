@@ -27,8 +27,15 @@ function extOf(path: string): string {
 }
 
 // Derive the target language file path from a source path.
+// Source paths may be jar-internal (mods/x.jar!assets/xenon/lang/en_us.lang) —
+// strip everything before the last "assets/" so the exported resource-pack entry
+// is a clean assets/<modid>/lang/<code>.<ext> path.
 function targetPath(sourcePath: string, targetCode: string): string {
-  const parts = sourcePath.split('/')
+  const norm = sourcePath.replace(/\\/g, '/')
+  let rel = norm
+  const idx = norm.lastIndexOf('assets/')
+  if (idx >= 0) rel = norm.slice(idx)
+  const parts = rel.split('/')
   const fname = parts[parts.length - 1]
   const ext = extOf(fname)
   const targetExt = ext === 'lang' || ext === 'properties' ? 'lang' : 'json'

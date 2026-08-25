@@ -73,7 +73,7 @@ ${items}
 【输出格式】只输出一个 JSON 对象，格式严格如下，不要输出 Markdown、代码块标记、解释或任何额外文本：
 {"translations":{"key1":"译文1","key2":"译文2"}}
 
-每个待翻译的 key 都必须出现在 translations 中，译文为对应原文的${langName}翻译。`
+每个待翻译的 key 都必须原样出现在 translations 中。注意：key 是完整字符串（例如 "value.info0.0"），必须作为整体出现，绝不能按 "." 拆分成多级嵌套对象。译文为对应原文的${langName}翻译。`
 }
 
 export function buildReviewPrompt(

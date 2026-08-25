@@ -51,6 +51,10 @@ export async function translateProject(
   // Entries eligible for translation
   const eligible = allEntries.filter((e) => {
     if (e.status === 'builtin') return false
+    // Empty source text (e.g. shader/lang placeholder "value.info0.0=") is not
+    // translatable — exclude so the LLM never sees a blank string and we never
+    // mark a spurious "missing" failure.
+    if (!e.sourceText || e.sourceText.trim() === '') return false
     if (options.scope === 'selected' || options.onlySelected) {
       if (!e.selected) return false
     }

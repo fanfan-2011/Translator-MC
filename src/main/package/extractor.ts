@@ -145,7 +145,9 @@ export function extractEntries(
     }
     const parsed = parseContent(content, src.path)
     for (const { key, value } of parsed) {
-      if (!key || value === undefined || value === null) continue
+      // Skip empty/null values — empty placeholders (e.g. "value.info0.0=") in
+      // shader/lang files are not translatable and cause spurious "missing" failures.
+      if (!key || value === undefined || value === null || value.trim() === '') continue
       const dupKey = seen.has(key)
       seen.add(key)
 

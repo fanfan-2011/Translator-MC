@@ -69,11 +69,14 @@ export async function translateProject(
   }
 
   const task = db.createTask(projectId, 'translate', eligible.length)
+  const abortCtl = new AbortController()
   const activeTask: TaskController = new TaskController({
     taskId: task.id,
     onStateChange: (status) => {
       db.updateTask(task.id, { status })
-    }
+      emit() // 状态变化（暂停/继续）时立即推送进度，界面能立刻反映
+    },
+    onCancel: () => abortCtl.abort()
   })
   registerTaskController(activeTask)
   db.updateTask(task.id, { status: 'running' })
@@ -180,13 +183,14 @@ export async function translateProject(
         })
 
         const content = await withRetry(
-          () => llmChat(config, [{ role: 'system', content: sys }, { role: 'user', content: user }]),
+          () => llmChat(config, [{ role: 'system', content: sys }, { role: 'user', content: user }], abortCtl.signal),
           {
             maxRetries: config.maxRetries ?? 3,
             baseDelayMs: 1000,
             onRetry: (attempt, err) => {
               logger.warn(`批次重试 ${attempt}: ${err}`)
-            }
+            },
+            isFatal: () => activeTask.cancelled
           }
         )
 
@@ -214,6 +218,7 @@ export async function translateProject(
           done++
         }
       } catch (err) {
+        if (activeTask.cancelled) return // 用户取消导致的中断，不把批次标记为失败
         const msg = err instanceof Error ? err.message : String(err)
         logger.error(`批次翻译失败: ${msg}`)
         for (const entry of batch) {

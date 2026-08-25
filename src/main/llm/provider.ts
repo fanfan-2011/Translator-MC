@@ -10,7 +10,7 @@ export interface LLMProvider {
   id: string
   name: string
   listModels(config: LLMConfig): Promise<ModelInfo[]>
-  chat(config: LLMConfig, messages: ChatMessage[]): Promise<string>
+  chat(config: LLMConfig, messages: ChatMessage[], signal?: AbortSignal): Promise<string>
 }
 
 function normalizeEndpoint(endpoint: string): string {
@@ -34,7 +34,7 @@ class OpenAICompatibleProvider implements LLMProvider {
     return list.map((m) => ({ id: m.id, name: m.id }))
   }
 
-  async chat(config: LLMConfig, messages: ChatMessage[]): Promise<string> {
+  async chat(config: LLMConfig, messages: ChatMessage[], cancelSignal?: AbortSignal): Promise<string> {
     const base = normalizeEndpoint(config.endpoint)
     const url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -49,17 +49,19 @@ class OpenAICompatibleProvider implements LLMProvider {
 
     let res: Response
     try {
+      const timeoutSignal = AbortSignal.timeout(config.timeout || 60000)
+      // Combine the external cancel signal with the timeout signal (Chrome 116+).
+      const signal = cancelSignal ? AbortSignal.any([cancelSignal, timeoutSignal]) : timeoutSignal
       res = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(config.timeout || 60000)
+        signal
       })
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e // 取消或超时，交上层判断
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort') || msg.includes('timeout') || msg.includes('Timeout')) {
-        throw new Error('请求超时')
-      }
+      if (msg.includes('timeout')) throw new Error('请求超时')
       throw new Error(`网络错误: ${msg}`)
     }
 
@@ -90,10 +92,10 @@ export function getProvider(id: string): LLMProvider {
 }
 
 // Route a chat request through the right provider based on config.
-export async function llmChat(config: LLMConfig, messages: ChatMessage[]): Promise<string> {
+export async function llmChat(config: LLMConfig, messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
   const provider = getProvider(config.provider)
   logger.debug(`LLM 请求 → ${provider.name} (${config.model})`)
-  return provider.chat(config, messages)
+  return provider.chat(config, messages, signal)
 }
 
 export async function llmListModels(config: LLMConfig): Promise<ModelInfo[]> {

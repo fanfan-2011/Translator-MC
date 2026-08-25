@@ -5,6 +5,7 @@
 export interface TaskControllerOptions {
   taskId: string
   onStateChange?: (status: 'running' | 'paused') => void
+  onCancel?: () => void
 }
 
 export class TaskController {
@@ -13,10 +14,12 @@ export class TaskController {
   private _pause = false
   private pauseWaiters: (() => void)[] = []
   private onStateChange?: (status: 'running' | 'paused') => void
+  private onCancel?: () => void
 
   constructor(opts: TaskControllerOptions) {
     this.taskId = opts.taskId
     this.onStateChange = opts.onStateChange
+    this.onCancel = opts.onCancel
   }
 
   get cancelled(): boolean {
@@ -52,6 +55,7 @@ export class TaskController {
     if (this._cancel) return
     this._cancel = true
     this._pause = false
+    this.onCancel?.()
     const waiters = this.pauseWaiters.splice(0)
     for (const w of waiters) w()
   }

@@ -43,6 +43,8 @@ export interface RetryOpts {
   maxRetries: number
   baseDelayMs: number
   onRetry?: (attempt: number, error: string) => void
+  // Return true for errors that must NOT be retried (e.g. user cancel / AbortError).
+  isFatal?: (error: unknown) => boolean
 }
 
 // Exponential backoff retry: 1s, 2s, 4s, 8s ...
@@ -53,6 +55,7 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOpts): Promi
       return await fn()
     } catch (e) {
       lastErr = e
+      if (opts.isFatal?.(e)) throw e
       if (attempt >= opts.maxRetries) break
       const delay = opts.baseDelayMs * Math.pow(2, attempt)
       opts.onRetry?.(attempt + 1, e instanceof Error ? e.message : String(e))

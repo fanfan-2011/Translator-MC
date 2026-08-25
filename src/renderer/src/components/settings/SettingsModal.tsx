@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { PROVIDER_PRESETS, TARGET_LANGUAGES, type LLMConfig, type ModelInfo } from '@shared/types'
 import { api } from '../../api'
 import { useApp } from '../../stores/app'
-import { Button, Field, Input, Modal, Select, Spinner } from '../ui'
+import { Button, Checkbox, Field, Input, Modal, Select, Spinner } from '../ui'
 
 export function SettingsModal(): JSX.Element {
   const open = useApp((s) => s.settingsOpen)
@@ -92,17 +92,39 @@ export function SettingsModal(): JSX.Element {
                 </Button>
               </div>
             </Field>
-            <Field label="模型">
+            <Field label="模型" hint="点击「刷新」获取可用模型，可下拉选择或手动输入">
               <div className="flex gap-1">
                 <Input
+                  list="llm-model-list"
                   value={form.model}
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="模型名称"
+                  placeholder="选择或输入模型名称"
                 />
                 <Button size="sm" onClick={() => void refreshModels()} disabled={loadingModels}>
                   {loadingModels ? <Spinner className="h-3.5 w-3.5" /> : '刷新'}
                 </Button>
               </div>
+              <datalist id="llm-model-list">
+                {models.map((m) => (
+                  <option key={m.id} value={m.id} />
+                ))}
+              </datalist>
+              {models.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {models.map((m) => (
+                    <label
+                      key={m.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/40"
+                    >
+                      <Checkbox
+                        checked={form.model === m.id}
+                        onChange={() => setForm({ ...form, model: m.id })}
+                      />
+                      <span className="truncate">{m.id}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </Field>
             <Field label="目标语言" hint="翻译到的语言（导入/翻译/导出统一使用）">
               <Select value={form.targetLanguage} onChange={(v) => setForm({ ...form, targetLanguage: v })}>
@@ -164,11 +186,6 @@ export function SettingsModal(): JSX.Element {
               />
             </Field>
           </div>
-          {models.length > 0 ? (
-            <div className="mt-2 text-xs text-slate-400">
-              可用模型：{models.map((m) => m.id).join(', ')}
-            </div>
-          ) : null}
         </section>
 
         <section>

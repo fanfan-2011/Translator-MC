@@ -1,6 +1,6 @@
 # Translator MC
 
-Minecraft 本地化 AI 翻译工具 —— 把 Minecraft Mod / Resource Pack / Shader Pack 拖进来，Agent 自动分析文件结构、提取文本、调用大模型批量翻译、术语管理、质量检查、人工审核，最后安全导出（绝不覆盖原文件）。
+Minecraft AI 翻译工具 —— 把 Minecraft Mod / Resource Pack / Shader Pack 拖进来，Agent 自动分析文件结构、提取文本、调用大模型批量翻译、术语管理、质量检查、人工审核，最后安全导出（不覆盖原文件）。
 
 ## 运行方法
 
@@ -65,34 +65,6 @@ npm run build:win  # 构建 + 打包 Windows 安装程序（输出到 release/�
 | 数据 | SQLite（sql.js）持久化，自动保存 |
 | 其它 | 搜索/筛选/批量选择/虚拟滚动表格/主题切换/快捷键/日志 |
 
-## 技术栈
-
-- **桌面运行时**：Electron 31
-- **前端**：React 18 + TypeScript + Vite + Tailwind CSS + Zustand + @tanstack/react-virtual（虚拟滚动）
-- **后端**：Node.js（文件系统 / zip / jar 处理 / 目录扫描 / 解析 / 导出 / 并发 / SQLite）
-- **数据**：sql.js（纯 WASM SQLite，无需原生编译）
-- **AI**：OpenAI 兼容 API 抽象
-
-## 目录结构
-
-```
-src/
-├── main/            # Electron 主进程（后端）
-│   ├── db/          #   SQLite 数据层
-│   ├── package/     #   导入、类型识别、语言文件提取
-│   ├── parser/      #   多格式解析器
-│   ├── translation/ #   翻译引擎、并发、校验、任务管理
-│   ├── llm/         #   LLM Provider、Prompt 注册表、JSON 修复
-│   ├── quality/     #   AI 质量审校
-│   ├── export/      #   导出（资源包 / Jar）
-│   └── selftest.ts  #   端到端自测
-├── preload/         # IPC 桥接
-├── shared/          # 前后端共享类型
-└── renderer/src/    # React 前端
-    ├── components/  # UI 组件（布局、工作台、术语表、设置、导出…）
-    ├── stores/      # Zustand 状态
-    └── lib/         # 工具函数
-```
 
 ## 测试
 

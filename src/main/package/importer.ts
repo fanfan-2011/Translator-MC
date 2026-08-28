@@ -10,7 +10,7 @@ import type { ImportResult, PackageInfo, PackageType, TranslationEntry } from '@
 function defaultProjectName(paths: string[]): string {
   const first = paths[0]
   const base = basename(first).replace(/\.(jar|zip)$/i, '')
-  return base || '本地化项目'
+  return base || '翻译项目'
 }
 
 export interface DetectedPreview {

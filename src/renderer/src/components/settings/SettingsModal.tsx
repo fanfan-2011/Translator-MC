@@ -3,6 +3,7 @@ import { PROVIDER_PRESETS, TARGET_LANGUAGES, type LLMConfig, type ModelInfo } fr
 import { api } from '../../api'
 import { useApp } from '../../stores/app'
 import { Button, Checkbox, Field, Input, Modal, Select, Spinner } from '../ui'
+import { HiddenStateIcon, RefreshIcon, VisibleStateIcon } from '../icons'
 
 export function SettingsModal(): JSX.Element {
   const open = useApp((s) => s.settingsOpen)
@@ -87,8 +88,18 @@ export function SettingsModal(): JSX.Element {
                   onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
                   placeholder="sk-..."
                 />
-                <Button size="sm" onClick={() => setShowKey(!showKey)}>
-                  {showKey ? '隐藏' : '显示'}
+                <Button
+                  size="sm"
+                  className="!px-0 w-8"
+                  title={showKey ? '隐藏' : '显示'}
+                  aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}
+                  onClick={() => setShowKey(!showKey)}
+                >
+                  {showKey ? (
+                    <VisibleStateIcon className="h-4 w-4" />
+                  ) : (
+                    <HiddenStateIcon className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </Field>
@@ -100,8 +111,15 @@ export function SettingsModal(): JSX.Element {
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
                   placeholder="选择或输入模型名称"
                 />
-                <Button size="sm" onClick={() => void refreshModels()} disabled={loadingModels}>
-                  {loadingModels ? <Spinner className="h-3.5 w-3.5" /> : '刷新'}
+                <Button
+                  size="sm"
+                  className="!px-0 w-8"
+                  title="刷新模型列表"
+                  aria-label="刷新模型列表"
+                  onClick={() => void refreshModels()}
+                  disabled={loadingModels}
+                >
+                  {loadingModels ? <Spinner className="h-3.5 w-3.5" /> : <RefreshIcon className="h-4 w-4" />}
                 </Button>
               </div>
               <datalist id="llm-model-list">

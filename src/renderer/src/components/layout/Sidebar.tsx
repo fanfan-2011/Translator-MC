@@ -27,12 +27,12 @@ const groups: { title: string; items: NavItem[] }[] = [
       { id: 'memory', label: '翻译记忆', icon: Brain },
       { id: 'history', label: '历史', icon: History }
     ]
-  },
-  {
-    title: '工具',
-    items: [{ id: 'logs', label: '开发者日志', icon: ScrollText }]
   }
 ]
+
+// 「工具」标题下的导航项；AI 设置 / 导出两个操作按钮共用同一个「工具」标题，
+// 不要再单独加一个组，否则侧边栏会出现两个连着的「工具」。
+const TOOLS: NavItem[] = [{ id: 'logs', label: '开发者日志', icon: ScrollText }]
 
 export function Sidebar(): JSX.Element {
   const view = useApp((s) => s.view)
@@ -49,6 +49,24 @@ export function Sidebar(): JSX.Element {
     setView(id)
   }
 
+  const navButton = (item: NavItem): JSX.Element => {
+    const Icon = item.icon
+    return (
+      <button
+        key={item.id}
+        onClick={() => go(item.id)}
+        className={`mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+          view === item.id
+            ? 'bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+        }`}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {item.label}
+      </button>
+    )
+  }
+
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       <nav className="flex-1 overflow-y-auto px-2 py-3">
@@ -57,27 +75,12 @@ export function Sidebar(): JSX.Element {
             <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               {g.title}
             </div>
-            {g.items.map((item) => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => go(item.id)}
-                  className={`mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
-                    view === item.id
-                      ? 'bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </button>
-              )
-            })}
+            {g.items.map(navButton)}
           </div>
         ))}
 
         <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">工具</div>
+        {TOOLS.map(navButton)}
         <button
           onClick={() => setSettingsOpen(true)}
           className="mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"

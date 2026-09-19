@@ -265,6 +265,8 @@ export function renameProject(id: string, name: string): void {
 }
 
 export function deleteProject(id: string): void {
+  // 先清该项目的翻译历史（历史表通过 entry_id 关联条目，条目删掉后就查不到，会留孤儿记录）
+  run('DELETE FROM translation_history WHERE entry_id IN (SELECT id FROM translation_entries WHERE project_id = ?)', [id])
   run('DELETE FROM projects WHERE id = ?', [id])
   run('DELETE FROM packages WHERE project_id = ?', [id])
   run('DELETE FROM translation_entries WHERE project_id = ?', [id])
@@ -412,7 +414,7 @@ export function updateEntryIssues(id: string, issues: TranslationIssue[], qualit
 
 export function clearEntryTarget(id: string): void {
   run(
-    "UPDATE translation_entries SET target_text = '', status = 'pending', quality_score = NULL, updated_at = ? WHERE id = ?",
+    "UPDATE translation_entries SET target_text = '', status = 'pending', quality_score = NULL, issues = '[]', updated_at = ? WHERE id = ?",
     [now(), id]
   )
 }
@@ -593,8 +595,16 @@ export function listAllHistory(projectId: string): HistoryWithKey[] {
   }))
 }
 
-export function deleteHistoryMany(ids: string[]): void {
+export function deleteHistoryMany(ids: string[], projectId?: string): void {
   if (ids.length === 0) {
+    // 空数组 = 清空全部。传入 projectId 时只清该项目，避免界面说"当前项目"却清掉所有项目的记录。
+    if (projectId) {
+      run(
+        'DELETE FROM translation_history WHERE entry_id IN (SELECT id FROM translation_entries WHERE project_id = ?)',
+        [projectId]
+      )
+      return
+    }
     run('DELETE FROM translation_history')
     return
   }

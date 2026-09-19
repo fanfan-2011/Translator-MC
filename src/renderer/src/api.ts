@@ -68,7 +68,8 @@ export const api = {
   listHistory: (entryId: string): Promise<HistoryEntry[]> => window.api.listHistory(entryId) as Promise<HistoryEntry[]>,
   listAllHistory: (projectId: string): Promise<(HistoryEntry & { key: string })[]> =>
     window.api.listAllHistory(projectId) as Promise<(HistoryEntry & { key: string })[]>,
-  deleteHistoryMany: (ids: string[]): Promise<void> => window.api.deleteHistoryMany(ids) as Promise<void>,
+  deleteHistoryMany: (ids: string[], projectId?: string): Promise<void> =>
+    window.api.deleteHistoryMany(ids, projectId) as Promise<void>,
 
   listIssues: (projectId: string): Promise<IssueRecord[]> => window.api.listIssues(projectId) as Promise<IssueRecord[]>,
   setIssueResolved: (id: string, resolved: boolean): Promise<void> =>

@@ -119,7 +119,9 @@ export function registerIpcHandlers(): void {
   // ---------- History ----------
   ipcMain.handle('history:list', (_e, entryId: string) => db.listHistory(entryId))
   ipcMain.handle('history:listAll', (_e, projectId: string) => db.listAllHistory(projectId))
-  ipcMain.handle('history:deleteMany', (_e, ids: string[]) => db.deleteHistoryMany(ids))
+  ipcMain.handle('history:deleteMany', (_e, ids: string[], projectId?: string) =>
+    db.deleteHistoryMany(ids, projectId)
+  )
 
   // ---------- Issues ----------
   ipcMain.handle('issues:list', (_e, projectId: string) => db.listIssues(projectId))

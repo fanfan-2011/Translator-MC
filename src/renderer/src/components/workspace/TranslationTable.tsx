@@ -63,7 +63,7 @@ export function TranslationTable({
         <div className="w-1/4 min-w-0 shrink-0 px-2">Key</div>
         <div className="w-1/4 min-w-0 shrink-0 px-2">原文</div>
         <div className="flex-1 min-w-0 px-2">译文（点击编辑）</div>
-        <div className="w-20 shrink-0 px-2 text-right">质量</div>
+        <div className="w-24 shrink-0 px-2 text-right">质量</div>
       </div>
 
       {/* body */}
@@ -122,7 +122,16 @@ export function TranslationTable({
                     </div>
                   )}
                 </div>
-                <div className="flex w-20 shrink-0 items-center justify-end gap-1 px-2">
+                <div className="flex w-24 shrink-0 items-center justify-end gap-1.5 px-2">
+                  {e.targetText ? (
+                    <button
+                      onClick={() => handlers.onClearTarget(e.id)}
+                      title="清除该条译文（状态回到未翻译）"
+                      className="mr-auto text-[11px] text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      清除
+                    </button>
+                  ) : null}
                   {hasIssues ? (
                     <span className="flex items-center gap-0.5 text-xs text-amber-500" title={e.issues.map((i) => i.message).join('\n')}>
                       <AlertTriangle className="h-3 w-3" />

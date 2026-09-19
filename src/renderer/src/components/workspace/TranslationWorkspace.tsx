@@ -97,6 +97,10 @@ export function TranslationWorkspace(): JSX.Element {
     mutateEntry(id, { targetText: target, status: 'human_reviewed' })
     void api.updateEntryTarget(id, target, 'human_reviewed')
   }
+  const onClearTarget = (id: string): void => {
+    mutateEntry(id, { targetText: '', status: 'pending', qualityScore: null, issues: [] })
+    void api.clearTarget(id)
+  }
 
   const startTranslate = async (reTranslate: boolean): Promise<void> => {
     if (!projectId) return
@@ -240,7 +244,7 @@ export function TranslationWorkspace(): JSX.Element {
         <div className="min-h-0 flex-1">
           <TranslationTable
             entries={filtered}
-            handlers={{ onToggleSelect, onToggleSelectAll, onEditTarget, onClearTarget: () => {} }}
+            handlers={{ onToggleSelect, onToggleSelectAll, onEditTarget, onClearTarget }}
           />
         </div>
       </div>

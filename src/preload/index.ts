@@ -18,10 +18,10 @@ const api = {
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke('import:select'),
   selectDir: (): Promise<string[]> => ipcRenderer.invoke('import:selectDir'),
-  previewPackage: (sourcePath: string, hint?: string): Promise<unknown> =>
-    ipcRenderer.invoke('import:preview', sourcePath, hint),
-  importFiles: (sourcePaths: string[], projectId?: string, hint?: string): Promise<unknown> =>
-    ipcRenderer.invoke('import:files', sourcePaths, projectId, hint),
+  previewPackage: (sourcePath: string, hint?: string, targetCode?: string): Promise<unknown> =>
+    ipcRenderer.invoke('import:preview', sourcePath, hint, targetCode),
+  importFiles: (sourcePaths: string[], projectId?: string, hint?: string, targetCode?: string): Promise<unknown> =>
+    ipcRenderer.invoke('import:files', sourcePaths, projectId, hint, targetCode),
 
   // packages
   listPackages: (projectId: string): Promise<unknown> => ipcRenderer.invoke('packages:list', projectId),
@@ -50,7 +50,8 @@ const api = {
   // history
   listHistory: (entryId: string): Promise<unknown> => ipcRenderer.invoke('history:list', entryId),
   listAllHistory: (projectId: string): Promise<unknown> => ipcRenderer.invoke('history:listAll', projectId),
-  deleteHistoryMany: (ids: string[]): Promise<unknown> => ipcRenderer.invoke('history:deleteMany', ids),
+  deleteHistoryMany: (ids: string[], projectId?: string): Promise<unknown> =>
+    ipcRenderer.invoke('history:deleteMany', ids, projectId),
 
   // issues
   listIssues: (projectId: string): Promise<unknown> => ipcRenderer.invoke('issues:list', projectId),

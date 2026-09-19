@@ -51,7 +51,11 @@ export function MemoryPanel(): JSX.Element {
 
   const clearAll = async (): Promise<void> => {
     if (memory.length === 0) return
-    if (window.confirm(`确定清空全部 ${memory.length} 条翻译记忆吗？此操作不可撤销。`)) {
+    if (
+      window.confirm(
+        `确定清空全部 ${memory.length} 条翻译记忆吗？\n\n注意：翻译记忆为所有项目共享，此操作会一并清掉其它项目的记忆，且不可撤销。`
+      )
+    ) {
       await api.deleteMemoryMany([])
       reload()
     }
@@ -73,7 +77,7 @@ export function MemoryPanel(): JSX.Element {
         </div>
       </div>
       <p className="mb-2 text-xs text-slate-400">
-        翻译记忆会在后续翻译中自动复用完全相同的原文，共 {memory.length} 条。
+        翻译记忆会在后续翻译中自动复用完全相同的原文，共 {memory.length} 条（所有项目共享）。
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
         <table className="w-full text-sm">

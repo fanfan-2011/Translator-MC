@@ -107,6 +107,9 @@ export async function translateProject(
   const glossaryByType = (pkgType: PackageType): GlossaryEntry[] =>
     glossary.filter((g) => g.packageType === 'all' || g.packageType === pkgType)
 
+  const packageTypeOf = (entry: TranslationEntry): PackageType =>
+    packages.find((p) => p.id === entry.packageId)?.type ?? 'unknown'
+
   emit() // fire an initial progress event so the renderer learns the taskId immediately
 
   // exact-match map (source text -> target) for reuse — 只复用与当前目标语言一致的记忆
@@ -142,11 +145,13 @@ export async function translateProject(
       const mem = memoryMap.get(e.sourceText)
       const gl = glossaryExact.get(e.sourceText)
       const val = mem ?? gl ?? ''
-      const issues = validateAll(e.sourceText, val, glossaryByType(db.listPackages(projectId).find((p) => p.id === e.packageId)?.type ?? 'unknown'))
+      const pkgType = packageTypeOf(e)
+      const issues = validateAll(e.sourceText, val, glossaryByType(pkgType))
       const status = issues.some((i) => i.severity === 'error') ? 'needs_review' : 'ai_translated'
       db.updateEntryTarget(e.id, val, status)
       db.updateEntryIssues(e.id, issues, null)
-      db.upsertMemory(e.sourceText, val, e.category, config.targetLanguage)
+      // 记忆的 packageType 统一写包类型（mod / shader / resourcepack），与批次翻译路径保持一致
+      db.upsertMemory(e.sourceText, val, pkgType, config.targetLanguage)
       db.addHistory(e.id, 'ai', val)
       reused++
       done++

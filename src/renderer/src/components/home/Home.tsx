@@ -73,7 +73,7 @@ export function Home(): JSX.Element {
         <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">Minecraft Mod</span>
         <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">Resource Pack</span>
         <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">Shader Pack</span>
-        <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">本地化文件 (.jar / .zip / 目录)</span>
+        <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">语言文件 (.jar / .zip / 目录)</span>
       </div>
 
       {paths ? <ImportModal paths={paths} onClose={() => setPaths(null)} /> : null}

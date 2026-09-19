@@ -72,9 +72,14 @@ export async function reviewProject(
   }
 
   const task = db.createTask(projectId, 'review', total)
+  const abortCtl = new AbortController()
   const controller: TaskController = new TaskController({
     taskId: task.id,
-    onStateChange: (status) => db.updateTask(task.id, { status })
+    onStateChange: (status) => {
+      db.updateTask(task.id, { status })
+      emit() // 状态变化（暂停/继续）时立即推送进度，界面能立刻反映
+    },
+    onCancel: () => abortCtl.abort()
   })
   registerTaskController(controller)
   db.updateTask(task.id, { status: 'running' })
@@ -122,16 +127,21 @@ export async function reviewProject(
 
       const content = await withRetry(
         () =>
-          llmChat(config, [
-            { role: 'system', content: '你是一名翻译质量审校专家。' },
-            { role: 'user', content: prompt }
-          ]),
+          llmChat(
+            config,
+            [
+              { role: 'system', content: '你是一名翻译质量审校专家。' },
+              { role: 'user', content: prompt }
+            ],
+            abortCtl.signal
+          ),
         {
           maxRetries: config.maxRetries ?? 3,
           baseDelayMs: 1000,
           onRetry: (attempt, err) => {
             logger.warn(`审校批次重试 ${attempt}: ${err}`)
-          }
+          },
+          isFatal: () => controller.cancelled
         }
       )
 
@@ -162,6 +172,7 @@ export async function reviewProject(
         done++
       }
     } catch (err) {
+      if (controller.cancelled) return // 用户取消导致的中断，不把批次标记为失败
       const msg = err instanceof Error ? err.message : String(err)
       logger.warn(`审校批次失败: ${msg}`)
       for (const e of batch) {

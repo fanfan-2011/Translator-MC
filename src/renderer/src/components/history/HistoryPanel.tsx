@@ -52,7 +52,7 @@ export function HistoryPanel(): JSX.Element {
   const deleteSelected = async (): Promise<void> => {
     if (selected.size === 0) return
     if (window.confirm(`确定删除选中的 ${selected.size} 条历史记录吗？`)) {
-      await api.deleteHistoryMany([...selected])
+      await api.deleteHistoryMany([...selected], projectId ?? undefined)
       reload()
     }
   }
@@ -60,7 +60,7 @@ export function HistoryPanel(): JSX.Element {
   const clearAll = async (): Promise<void> => {
     if (rows.length === 0) return
     if (window.confirm(`确定清空当前项目的全部 ${rows.length} 条历史记录吗？此操作不可撤销。`)) {
-      await api.deleteHistoryMany([])
+      await api.deleteHistoryMany([], projectId ?? undefined)
       reload()
     }
   }
@@ -80,6 +80,9 @@ export function HistoryPanel(): JSX.Element {
           </Button>
         </div>
       </div>
+      <p className="mb-2 text-xs text-slate-400">
+        显示当前项目最近的 1000 条译文变动记录（来源：AI / 人工 / AI 审校 / 自带）。
+      </p>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500 dark:bg-slate-800">

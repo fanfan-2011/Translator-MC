@@ -47,6 +47,23 @@ async function main(): Promise<void> {
   const modDet = detectPackage(modVfs)
   assert(modDet.type === 'mod', `Mod 识别 (fabric.mod.json) → ${modDet.type}`)
   assert(modDet.modId === 'testmod' && modDet.name === 'Test Mod', 'Mod 元数据提取')
+  assert(modDet.version === '1.0.0', `Mod 版本号提取 → ${modDet.version}`)
+
+  // Forge 的 mods.toml 里 version="${file.jarVersion}" 是构建期占位符：未展开时必须视为未知版本，
+  // 否则界面会显示「版本: ${file.jarVersion}」（见 TASKS.md 已知缺陷）。
+  const forgeJar = new AdmZip()
+  forgeJar.addFile(
+    'META-INF/mods.toml',
+    Buffer.from(
+      'modLoader="javafml"\nloaderVersion="[47,)"\n[[mods]]\nmodId="testforge"\ndisplayName="Test Forge"\nversion="${file.jarVersion}"\n'
+    )
+  )
+  forgeJar.addFile('assets/testforge/lang/en_us.json', Buffer.from(JSON.stringify({ 'item.a': 'A' })))
+  const forgePath = join(dir, 'testforge.jar')
+  forgeJar.writeZip(forgePath)
+  const forgeDet = detectPackage((await openVfs(forgePath)).vfs)
+  assert(forgeDet.modId === 'testforge' && forgeDet.name === 'Test Forge', `Forge 元数据提取 → ${forgeDet.modId}`)
+  assert(forgeDet.version === '', `未展开占位符版本号被清洗为空 → "${forgeDet.version}"`)
 
   // resourcepack
   const rpJar = new AdmZip()

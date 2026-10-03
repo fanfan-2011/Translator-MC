@@ -1,23 +1,25 @@
 import {
-  Folder,
-  Languages,
   BookOpen,
   Brain,
+  Folder,
+  FolderOutput,
   History,
+  Languages,
   ScrollText,
-  Settings,
-  Upload,
   type LucideIcon
 } from 'lucide-react'
 import { useApp, type View } from '../../stores/app'
+import { ModCard } from './ModCard'
+import { SettingsBar } from './SettingsBar'
+import { UpdateCard } from './UpdateCard'
 
 interface NavItem {
-  id: View
+  id: View | 'export'
   label: string
   icon: LucideIcon
 }
 
-const groups: { title: string; items: NavItem[] }[] = [
+const GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: '工作区',
     items: [
@@ -27,21 +29,32 @@ const groups: { title: string; items: NavItem[] }[] = [
       { id: 'memory', label: '翻译记忆', icon: Brain },
       { id: 'history', label: '历史', icon: History }
     ]
+  },
+  {
+    title: '工具',
+    items: [
+      { id: 'logs', label: '开发者日志', icon: ScrollText },
+      { id: 'export', label: '导出', icon: FolderOutput }
+    ]
   }
 ]
 
-// 「工具」标题下的导航项；AI 设置 / 导出两个操作按钮共用同一个「工具」标题，
-// 不要再单独加一个组，否则侧边栏会出现两个连着的「工具」。
-const TOOLS: NavItem[] = [{ id: 'logs', label: '开发者日志', icon: ScrollText }]
-
+/**
+ * 侧边栏 —— 设计稿 6:53 内的 21:4 / 35:2 / 36:101 / 36:122。
+ * 宽 327，底色 #e6e6e6：mod 信息卡（上）→ 导航（中，可滚动）→
+ * 更新卡 + 设置栏（下）。
+ */
 export function Sidebar(): JSX.Element {
   const view = useApp((s) => s.view)
   const setView = useApp((s) => s.setView)
-  const setSettingsOpen = useApp((s) => s.setSettingsOpen)
   const setExportOpen = useApp((s) => s.setExportOpen)
   const currentProjectId = useApp((s) => s.currentProjectId)
 
-  const go = (id: View): void => {
+  const go = (id: NavItem['id']): void => {
+    if (id === 'export') {
+      setExportOpen(true)
+      return
+    }
     if (id === 'workspace' && !currentProjectId) {
       setView('home')
       return
@@ -49,53 +62,43 @@ export function Sidebar(): JSX.Element {
     setView(id)
   }
 
-  const navButton = (item: NavItem): JSX.Element => {
-    const Icon = item.icon
-    return (
-      <button
-        key={item.id}
-        onClick={() => go(item.id)}
-        className={`mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
-          view === item.id
-            ? 'bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-        }`}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        {item.label}
-      </button>
-    )
-  }
-
   return (
-    <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        {groups.map((g) => (
-          <div key={g.title} className="mb-4">
-            <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              {g.title}
-            </div>
-            {g.items.map(navButton)}
+    <aside className="flex w-[327px] shrink-0 flex-col bg-bg">
+      <div className="px-1.5 pt-[26px]">
+        <ModCard />
+      </div>
+
+      <nav className="mt-4 flex-1 overflow-y-auto px-1.5 pb-4">
+        {GROUPS.map((g) => (
+          <div key={g.title} className="mb-0.5">
+            <div className="flex items-center px-3 py-2 text-xs font-medium text-link">{g.title}</div>
+            {g.items.map((item) => {
+              const Icon = item.icon
+              const active = view === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => go(item.id)}
+                  className={`flex h-9 w-full items-center gap-[10px] rounded-input px-3 text-left text-base transition-colors ${
+                    active
+                      ? 'bg-selected font-semibold text-ink-2'
+                      : 'font-medium text-ink-3 hover:bg-hover'
+                  }`}
+                >
+                  <Icon className="h-5 w-5 shrink-0" strokeWidth={1.7} />
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
         ))}
-
-        <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">工具</div>
-        {TOOLS.map(navButton)}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <Settings className="h-4 w-4 shrink-0" />
-          AI 设置
-        </button>
-        <button
-          onClick={() => setExportOpen(true)}
-          className="mb-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <Upload className="h-4 w-4 shrink-0" />
-          导出
-        </button>
       </nav>
+
+      <div className="flex flex-col gap-2 px-1.5 pb-3.5">
+        <UpdateCard />
+        <SettingsBar />
+      </div>
     </aside>
   )
 }

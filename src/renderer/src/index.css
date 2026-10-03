@@ -2,33 +2,582 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+/* ============================================================
+   设计令牌 —— 来源：Figma 文件 tsm（见 design/UI-SPEC.md）
+   组件里只用 tailwind.config.js 暴露的语义类名，不写死颜色。
+   ============================================================ */
+:root {
+  /* 表面 */
+  --tsm-bg: #e6e6e6;
+  --tsm-surface: #ffffff;
+  --tsm-surface-2: #f8fafc;
+  --tsm-surface-3: #fafafc;
+  --tsm-surface-4: #f7f7fa;
+  --tsm-row-alt: #fcfcff;
+  --tsm-sunken: #f3f4f6;
+  --tsm-code-bg: #f2f5f7;
+
+  /* 描边 */
+  --tsm-line: #e5e7eb;
+  --tsm-line-2: #d9dee5;
+  --tsm-line-3: #d1d5db;
+  --tsm-line-4: #e0e3e8;
+  --tsm-line-row: #f0f1f2;
+
+  /* 文字 */
+  --tsm-ink: #111827;
+  --tsm-ink-2: #21294a;
+  --tsm-ink-3: #404040;
+  --tsm-ink-4: #40454d;
+  --tsm-muted: #6b7280;
+  --tsm-muted-2: #666b78;
+  --tsm-muted-3: #80858c;
+  --tsm-muted-4: #99a1ab;
+  --tsm-muted-5: #8c949e;
+
+  /* 品牌 / 强调 */
+  --tsm-primary: #66da48;
+  --tsm-on-primary: #ffffff;
+  --tsm-primary-soft: #ecfdf3;
+  --tsm-primary-line: #a7f3d0;
+  --tsm-primary-ink: #218a54;
+  --tsm-accent: #4f85d9;
+  --tsm-accent-2: #4f8bff;
+  --tsm-accent-soft: #eaf4ff;
+  --tsm-link: #6b85d6;
+  --tsm-target: #296bad;
+  --tsm-key: #bf2659;
+  --tsm-danger: #ff2929;
+  --tsm-danger-soft: #fee2e2;
+  --tsm-danger-hover: #e81123;
+
+  /* 交互态 */
+  --tsm-hover: rgba(0, 0, 0, 0.045);
+  --tsm-selected: #e8f0ff;
+  --tsm-scroll-thumb: rgba(0, 0, 0, 0.18);
+  --tsm-scroll-thumb-hover: rgba(0, 0, 0, 0.3);
+  --tsm-overlay: rgba(17, 24, 39, 0.4);
+
+  /* 侧边栏 / 设置栏玻璃态 */
+  --tsm-glass-bg: rgba(245, 247, 250, 0.5);
+  --tsm-glass-border: rgba(255, 255, 255, 0.3);
+  --tsm-toggle-bg: rgba(255, 255, 255, 0.15);
+  --tsm-toggle-border: rgba(255, 255, 255, 0.4);
+  --tsm-toggle-active: rgba(255, 255, 255, 0.55);
+  --tsm-toggle-active-border: rgba(255, 255, 255, 0.6);
+  --tsm-toggle-icon: #666e7a;
+
+  /* 顶栏 logo / 窗口按钮 */
+  --tsm-logo-bg: #d9d9d9;
+  --tsm-win-icon: #59616b;
+
+  /* 状态徽章（Figma 实测值） */
+  --tsm-st-builtin-bg: #d6edff;
+  --tsm-st-builtin-fg: #266bad;
+  --tsm-st-ai-bg: #e0e7ff;
+  --tsm-st-ai-fg: #4f59a6;
+  --tsm-st-pending-bg: #f1f5f9;
+  --tsm-st-pending-fg: #61738c;
+  --tsm-st-human-bg: #d1fae5;
+  --tsm-st-human-fg: #218a54;
+  --tsm-st-review-bg: #dbe046;
+  --tsm-st-review-fg: #736b0d;
+  --tsm-st-failed-bg: #ff2929;
+  --tsm-st-failed-fg: #b20d0d;
+  --tsm-st-attention-bg: #ffb429;
+  --tsm-st-attention-fg: #995905;
 }
 
-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+.dark {
+  --tsm-bg: #1b1d21;
+  --tsm-surface: #24262b;
+  --tsm-surface-2: #26282d;
+  --tsm-surface-3: #232529;
+  --tsm-surface-4: #282a30;
+  --tsm-row-alt: #25272c;
+  --tsm-sunken: #2e3138;
+  --tsm-code-bg: #2b2e34;
+
+  --tsm-line: #33363d;
+  --tsm-line-2: #3a3e46;
+  --tsm-line-3: #3f434b;
+  --tsm-line-4: #3a3e46;
+  --tsm-line-row: #2c2f34;
+
+  --tsm-ink: #e8eaed;
+  --tsm-ink-2: #dbe4ff;
+  --tsm-ink-3: #c3c6cc;
+  --tsm-ink-4: #c9ccd2;
+  --tsm-muted: #9aa0aa;
+  --tsm-muted-2: #9aa0aa;
+  --tsm-muted-3: #8d939d;
+  --tsm-muted-4: #767c86;
+  --tsm-muted-5: #8d939d;
+
+  --tsm-primary: #57c73c;
+  --tsm-on-primary: #ffffff;
+  --tsm-primary-soft: #1e3320;
+  --tsm-primary-line: #2f5230;
+  --tsm-primary-ink: #6fd954;
+  --tsm-accent: #5b8ede;
+  --tsm-accent-2: #6a9bff;
+  --tsm-accent-soft: #1f2a3d;
+  --tsm-link: #8ba4e6;
+  --tsm-target: #7fb0dd;
+  --tsm-key: #e06a8f;
+  --tsm-danger: #ff5c5c;
+  --tsm-danger-soft: #3a2023;
+  --tsm-danger-hover: #e81123;
+
+  --tsm-hover: rgba(255, 255, 255, 0.06);
+  --tsm-selected: #2c3550;
+  --tsm-scroll-thumb: rgba(255, 255, 255, 0.16);
+  --tsm-scroll-thumb-hover: rgba(255, 255, 255, 0.28);
+  --tsm-overlay: rgba(0, 0, 0, 0.55);
+
+  --tsm-glass-bg: rgba(255, 255, 255, 0.04);
+  --tsm-glass-border: rgba(255, 255, 255, 0.08);
+  --tsm-toggle-bg: rgba(255, 255, 255, 0.06);
+  --tsm-toggle-border: rgba(255, 255, 255, 0.1);
+  --tsm-toggle-active: rgba(255, 255, 255, 0.14);
+  --tsm-toggle-active-border: rgba(255, 255, 255, 0.18);
+  --tsm-toggle-icon: #9aa0aa;
+
+  --tsm-logo-bg: #2b2e34;
+  --tsm-win-icon: #9aa0aa;
 }
 
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family:
+      Inter, 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', Roboto, Helvetica,
+      Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--tsm-ink);
+    background: var(--tsm-bg);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* 应用外壳默认不可选中，需要复制的区域单独加 .selectable */
+  .app-shell {
+    user-select: none;
+  }
+  .selectable {
+    user-select: text;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--tsm-muted-4);
+  }
+  ::selection {
+    background: var(--tsm-selected);
+  }
+}
+
+@layer utilities {
+  /* frameless 窗口的拖动区 */
+  .app-drag {
+    -webkit-app-region: drag;
+  }
+  .app-nodrag {
+    -webkit-app-region: no-drag;
+  }
+  .glass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .truncate-1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* 滚动条：细、低对比，贴合设计稿的克制风格 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--tsm-scroll-thumb);
   border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--tsm-scroll-thumb-hover);
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============================================================
+   滑动条（Range Slider）—— 用令牌驱动，只有 Chromium 需要管伪元素，
+   Electron 渲染层就是 Chromium，所以这里统一用 -webkit- 前缀。
+   进度填充靠 --tsm-slider-fill（由组件按当前值写内联样式）。
+   ============================================================ */
+.tsm-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+.tsm-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--tsm-primary) var(--tsm-slider-fill, 50%),
+    var(--tsm-sunken) var(--tsm-slider-fill, 50%)
+  );
+}
+.tsm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  height: 16px;
+  width: 16px;
+  border-radius: 999px;
+  background: var(--tsm-surface);
+  border: 2px solid var(--tsm-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s ease;
+}
+.tsm-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+.tsm-slider:focus-visible {
+  outline: none;
+}
+.tsm-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--tsm-accent-soft);
+}
+.tsm-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   液态玻璃主题切换控件（SegmentedControl）
+   三层结构：
+     .tsm-glass             底层 = 随主题自动切换的纯色背景（不参与动画）
+     .tsm-glass__pill       顶层 = 唯一会移动的部件（只做 translateX）
+       └ span               玻璃本体 = 渐变面 + 折射 + 边缘高光 + 液态回弹
+   玻璃/文字颜色通过 data-tone（由宿主背景亮度实测得出）自适应。
+   ============================================================ */
+/* 液态玻璃的「运动学唯一来源」：注册成可插值的 <number>。
+   滑块位移与高光偏移都由它派生 —— 同源就不可能失步，
+   也不会再出现「高光结束在偏移位上」这类手写关键帧的残留问题。 */
+@property --tsm-glass-i {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+@property --tsm-glass-i-lag {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.tsm-glass {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: stretch;
+  padding: 2px;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--tsm-glass-track);
+  box-shadow:
+    inset 0 1px 2px rgba(16, 24, 40, 0.1),
+    inset 0 0 0 1px var(--tsm-glass-track-line);
+  /* --i 驱动滑块位移；--i-lag 是它的「慢速孪生」，高光用它算偏移，
+     于是高光必然拖在滑块后面，并必然与滑块同时收敛到同一个值。 */
+  transition:
+    --tsm-glass-i 280ms cubic-bezier(0.22, 1.06, 0.36, 1),
+    --tsm-glass-i-lag 420ms cubic-bezier(0.34, 0.94, 0.3, 1),
+    background-color 280ms cubic-bezier(0.22, 1.06, 0.36, 1),
+    box-shadow 280ms cubic-bezier(0.22, 1.06, 0.36, 1);
+}
+
+/* —— 宿主偏亮：浅色玻璃 + 深色文字（底层为不透明纯色） —— */
+.tsm-glass[data-tone='light'] {
+  --tsm-glass-track: #e6e9ee;
+  --tsm-glass-track-line: #d9dee5;
+  --tsm-glass-label: #59616b;
+  --tsm-glass-label-active: #16202c;
+  --tsm-glass-pill-a: rgba(255, 255, 255, 0.74);
+  --tsm-glass-pill-b: rgba(255, 255, 255, 0.3);
+  --tsm-glass-rim: rgba(255, 255, 255, 0.98);
+  --tsm-glass-fringe-a: rgba(0, 136, 255, 0.22);
+  --tsm-glass-fringe-b: rgba(130, 217, 255, 0.24);
+  --tsm-glass-sheen-opacity: 0.62;
+}
+
+/* —— 宿主偏暗：烟熏玻璃 + 浅色文字 —— */
+.tsm-glass[data-tone='dark'] {
+  --tsm-glass-track: #14171c;
+  --tsm-glass-track-line: rgba(255, 255, 255, 0.09);
+  --tsm-glass-label: rgba(255, 255, 255, 0.62);
+  --tsm-glass-label-active: #ffffff;
+  --tsm-glass-pill-a: rgba(255, 255, 255, 0.24);
+  --tsm-glass-pill-b: rgba(255, 255, 255, 0.07);
+  --tsm-glass-rim: rgba(255, 255, 255, 0.6);
+  --tsm-glass-fringe-a: rgba(120, 190, 255, 0.26);
+  --tsm-glass-fringe-b: rgba(255, 160, 255, 0.16);
+  --tsm-glass-sheen-opacity: 0.95;
+}
+
+/* 顶层：位置完全由 --tsm-glass-i 承载（不再单独写 transform 过渡，
+   避免「变量过渡」与「元素过渡」两套时长互相打架 —— 这正是之前失步的根源） */
+.tsm-glass__pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  z-index: 1;
+  border-radius: 10px;
+  transform: translateX(calc(var(--tsm-glass-i, 0) * 100%));
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* 玻璃本体：渐变面 + 模糊/折射 + 边缘高光 */
+.tsm-glass__pill > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(158deg, var(--tsm-glass-pill-a), var(--tsm-glass-pill-b));
+  backdrop-filter: blur(9px) saturate(1.8) url(#tsm-glass-refraction);
+  -webkit-backdrop-filter: blur(9px) saturate(1.8);
+  box-shadow:
+    inset 0 1px 0 var(--tsm-glass-rim),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.24),
+    inset 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset -1px 0 0 rgba(255, 255, 255, 0.4),
+    0 2px 6px rgba(16, 24, 40, 0.14);
+  /* 黑白切换时玻璃面与边缘高光一起淡入淡出，不瞬跳 */
+  transition:
+    background 280ms cubic-bezier(0.22, 1.06, 0.36, 1),
+    box-shadow 280ms cubic-bezier(0.22, 1.06, 0.36, 1);
+}
+
+/* 边缘折射色散：贴在玻璃内沿，随顶层一起位移 */
+.tsm-glass__pill > span::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    112deg,
+    var(--tsm-glass-fringe-a),
+    rgba(255, 255, 255, 0) 42%,
+    var(--tsm-glass-fringe-b)
+  );
+  mix-blend-mode: plus-lighter;
+  opacity: 1;
+  transition: opacity 280ms cubic-bezier(0.22, 1.06, 0.36, 1);
+  pointer-events: none;
+}
+
+/* 镜面高光：贴在玻璃上、随顶层一起位移；切换时也随滚动做视差（--tsm-glass-shift） */
+.tsm-glass__pill > span::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    50% 124% at 34% 0%,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 255, 255, 0) 64%
+  );
+  /* 高光偏移 = (滞后索引 − 当前索引) × 自身宽度：滑块移动时它自动拖尾，
+     两者收敛到同一个值时偏移自然归零 —— 不需要手写任何关键帧落点 */
+  transform: translateX(
+    calc((var(--tsm-glass-i-lag, 0) - var(--tsm-glass-i, 0)) * 100% + var(--tsm-glass-shift, 0px))
+  );
+  opacity: var(--tsm-glass-sheen-opacity, 0.9);
+  transition: opacity 280ms cubic-bezier(0.22, 1.06, 0.36, 1);
+  pointer-events: none;
+}
+
+/* 切换时的液态摆动（只发生在顶层内部，不影响顶层位移） */
+@keyframes tsm-liquid-settle {
+  0% {
+    transform: scale(1, 1);
+  }
+  34% {
+    transform: scale(1.05, 0.91);
+  }
+  68% {
+    transform: scale(0.985, 1.035);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/* 只动透明度、不动位移：这样它永远不可能把高光「留在偏移位上」 */
+@keyframes tsm-glass-glint {
+  0% {
+    opacity: calc(var(--tsm-glass-sheen-opacity, 0.9) * 0.35);
+  }
+  100% {
+    opacity: var(--tsm-glass-sheen-opacity, 0.9);
+  }
+}
+
+.tsm-glass__pill[data-moving='true'] > span {
+  animation: tsm-liquid-settle 280ms cubic-bezier(0.22, 1.06, 0.36, 1) both;
+}
+/* 切主题时单独来一次「重新反光」（只动透明度），切换滑块时高光的拖尾由 --i-lag 自带 */
+.tsm-glass__pill[data-moving='true'] > span::after,
+.tsm-glass__pill[data-reglint='true'] > span::after {
+  animation: tsm-glass-glint 300ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+/* 选项按钮（在玻璃之上，文字保持清晰） */
+.tsm-glass__btn {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: var(--tsm-glass-label);
+  transition: color 280ms cubic-bezier(0.22, 1.06, 0.36, 1);
+}
+.tsm-glass__btn:hover {
+  color: var(--tsm-glass-label-active);
+}
+.tsm-glass__btn[aria-pressed='true'] {
+  color: var(--tsm-glass-label-active);
+}
+
+/* ============================================================
+   主题切换动画：视口过渡（View Transitions）
+   useTheme 调用 document.startViewTransition()，合成器把「旧帧」和「新帧」
+   两张快照做交叉淡化 —— 既不是硬切，也不是逐元素颜色过渡
+   （后者实测 p95 帧时 80~107ms、5~6 帧超 32ms，是掉帧主因；本方案 14ms）。
+   注意：过渡期间页面展示的是快照，所以 .theme-switching 必须开着，
+   否则新帧快照会捕获到「过渡起点的配色」而淡不出变化。
+   时长压到 150/170ms：一是快（用户嫌 400ms 太长），二是让液态玻璃控件的
+   滑动后半程与反光动画能在快照结束后露出来（快照期间页面动画不可见）。
+   ============================================================ */
+::view-transition-old(root) {
+  animation: tsm-vt-old 150ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+::view-transition-new(root) {
+  animation: tsm-vt-new 170ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@keyframes tsm-vt-old {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes tsm-vt-new {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tsm-glass {
+    transition: none;
+  }
+  .tsm-glass__pill,
+  .tsm-glass__pill > span,
+  .tsm-glass__pill > span::before,
+  .tsm-glass__pill > span::after {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ============================================================
+   主题切换：瞬时切换（不做全局颜色过渡）
+   App.tsx 的 useTheme 在切换主题时给 <html> 加 .theme-switching（150ms 后移除）。
+   这里不是「加快过渡」，而是**彻底关掉切换期间的过渡**，于是：
+     · 所有控件在同一帧一起换色 → 不存在「谁快谁慢」，也不会出现
+       「底色还是白的、文字已经变浅」的中间糊状态（用户最初反馈的「跟不上」）；
+     · 实测（CDP 帧采集，全程 rAF）：不做全局颜色过渡时 p95 帧时 14ms、最大 27ms、0 掉帧；
+       而全文档颜色过渡（哪怕只有 170ms、只留颜色属性）p95 仍 80~107ms、5~6 帧超过 32ms。
+       即：卡顿来自「500+ 元素逐帧重绘」本身，不是属性选择或时长问题。
+   例外：液态玻璃滑块的位移动画必须保留，否则点主题时滑块会瞬移。
+   ============================================================ */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
+
+/* 例外：液态玻璃的索引变量必须继续可过渡，否则点主题时滑块会瞬移
+   （关键帧动画不受 transition 影响，无需例外） */
+html.theme-switching .tsm-glass {
+  transition:
+    --tsm-glass-i 280ms cubic-bezier(0.22, 1.06, 0.36, 1),
+    --tsm-glass-i-lag 420ms cubic-bezier(0.34, 0.94, 0.3, 1) !important;
+}
+
+/* ============================================================
+   运行时性能自适应降级
+   App.tsx 在每次切换主题后采样 20 帧；若出现 >70ms 的长帧，
+   就给 <html> 打上 data-motion-reduced —— 该机器上关闭液态玻璃的
+   过渡与动画（配色、选中态、可读性全部保留），只做瞬时切换。
+   这样弱机器不会被动效拖卡，强机器不受影响。
+   ============================================================ */
+html[data-motion-reduced='true'] .tsm-glass,
+html[data-motion-reduced='true'] .tsm-glass *,
+html[data-motion-reduced='true'] .tsm-glass *::before,
+html[data-motion-reduced='true'] .tsm-glass *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none;
+  }
 }

@@ -14,6 +14,9 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: 'Translator MC',
+    // 自绘顶栏：设计稿 6:53 的顶栏 + 36:121 三键（见 design/UI-SPEC.md）
+    frame: false,
+    backgroundColor: '#e6e6e6',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -23,6 +26,13 @@ function createWindow(): void {
   })
 
   win.on('ready-to-show', () => win.show())
+
+  // 最大化状态变化（含系统快捷键 / 双击）同步给渲染层，保证三键图标一致
+  const pushWinState = (): void => {
+    if (!win.isDestroyed()) win.webContents.send('window:state', win.isMaximized())
+  }
+  win.on('maximize', pushWinState)
+  win.on('unmaximize', pushWinState)
 
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

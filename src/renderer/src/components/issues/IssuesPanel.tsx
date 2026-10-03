@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { IssueRecord } from '@shared/types'
 import { api } from '../../api'
 import { useApp } from '../../stores/app'
-import { Modal } from '../ui'
+import { CodeChip, EmptyState, Modal } from '../ui'
 
 const ISSUE_LABEL: Record<string, string> = {
   placeholder: '占位符错误',
@@ -17,6 +17,11 @@ const ISSUE_LABEL: Record<string, string> = {
   json: 'JSON 异常'
 }
 
+/**
+ * 问题中心 —— 弹层（UI-SPEC 第 6 节）：Modal 本身即 bg-surface + border-line +
+ * rounded-card；内部每条问题是一张卡片（rounded-sm + border-line + shadow-card），
+ * 未解决带警示图标，已解决整体降透明度。空状态用 EmptyState。
+ */
 export function IssuesPanel(): JSX.Element {
   const open = useApp((s) => s.issueOpen)
   const setOpen = useApp((s) => s.setIssueOpen)
@@ -33,34 +38,44 @@ export function IssuesPanel(): JSX.Element {
   return (
     <Modal open={open} onClose={() => setOpen(false)} title="问题中心" width="max-w-2xl">
       {issues.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-slate-400">
-          <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-          没有待处理的问题
-        </div>
+        <EmptyState
+          icon={<CheckCircle2 className="h-6 w-6" strokeWidth={1.7} />}
+          title="没有待处理的问题"
+        />
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {issues.map((i) => (
             <div
               key={i.id}
-              className={`flex items-start gap-3 rounded-lg border p-3 ${
-                i.resolved
-                  ? 'border-slate-100 opacity-50 dark:border-slate-800'
-                  : 'border-slate-200 dark:border-slate-700'
+              className={`flex items-start gap-3 rounded-sm border border-line bg-surface p-3 transition-colors ${
+                i.resolved ? 'opacity-50' : 'shadow-card'
               }`}
             >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                  {ISSUE_LABEL[i.type] ?? i.type}
-                </div>
-                <div className="truncate font-mono text-xs text-slate-500" title={keyOf(i.entryId)}>
+              {i.resolved ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" strokeWidth={1.8} />
+              ) : (
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tsm-st-attention-fg)]"
+                  strokeWidth={1.8}
+                />
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="text-base font-semibold text-ink">{ISSUE_LABEL[i.type] ?? i.type}</div>
+                <CodeChip title={keyOf(i.entryId)} className="max-w-full">
                   {keyOf(i.entryId)}
-                </div>
-                <div className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{i.message}</div>
+                </CodeChip>
+                <div className="text-xs text-muted">{i.message}</div>
               </div>
               <button
-                onClick={() => void api.setIssueResolved(i.id, !i.resolved).then(() => api.listIssues(projectId!).then(setIssues))}
-                className="shrink-0 text-xs text-slate-400 hover:text-slate-600"
+                type="button"
+                onClick={() =>
+                  void api.setIssueResolved(i.id, !i.resolved).then(() => api.listIssues(projectId!).then(setIssues))
+                }
+                className={`app-nodrag h-7 shrink-0 rounded-full px-2.5 text-xs font-medium transition-colors ${
+                  i.resolved
+                    ? 'text-muted hover:bg-hover hover:text-ink'
+                    : 'text-primary-ink hover:bg-primary-soft'
+                }`}
               >
                 {i.resolved ? '撤销' : '标记已解决'}
               </button>

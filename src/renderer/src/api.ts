@@ -111,7 +111,30 @@ export const api = {
   clearLogs: (): Promise<void> => window.api.clearLogs() as Promise<void>,
 
   openHelp: (): Promise<{ ok: boolean; error?: string }> =>
-    window.api.openHelp() as Promise<{ ok: boolean; error?: string }>
+    window.api.openHelp() as Promise<{ ok: boolean; error?: string }>,
+
+  // 窗口控制（自绘顶栏）
+  windowState: (): Promise<boolean> => window.api.windowState() as Promise<boolean>,
+  minimizeWindow: (): Promise<void> => window.api.minimizeWindow() as Promise<void>,
+  toggleMaximize: (): Promise<boolean> => window.api.toggleMaximize() as Promise<boolean>,
+  closeWindow: (): Promise<void> => window.api.closeWindow() as Promise<void>,
+  onWindowState: (cb: (maximized: boolean) => void): (() => void) => window.api.onWindowState(cb),
+
+  // 更新检查（GitHub Releases）
+  checkUpdate: (): Promise<UpdateInfo> => window.api.checkUpdate() as Promise<UpdateInfo>
+}
+
+export interface UpdateInfo {
+  /** 是否存在比当前版本更新的已发布版本 */
+  available: boolean
+  /** 当前运行版本 */
+  current: string
+  /** 远端最新版本号（去掉 v 前缀） */
+  latest?: string
+  /** 远端最新提交短哈希 */
+  commit?: string
+  /** Release 页面地址 */
+  url?: string
 }
 
 export interface TranslateProgress {

@@ -228,6 +228,69 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ---------- 窗口控制（frameless 顶栏三键，见设计稿 36:121） ----------
+  ipcMain.handle(
+    'window:state',
+    (event) => BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
+  )
+  ipcMain.handle('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+  ipcMain.handle('window:toggleMaximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+    return win.isMaximized()
+  })
+  ipcMain.handle('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+
+  // ---------- 更新检查（GitHub Releases；离线/失败一律静默） ----------
+  ipcMain.handle('update:check', async () => {
+    const current = app.getVersion()
+    const repo = 'fanfan-2011/Translator-MC'
+    const getJson = async (url: string): Promise<unknown> => {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Translator-MC', Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(6000)
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    }
+    const isNewer = (a: string, b: string): boolean => {
+      const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
+      const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+        if (d !== 0) return d > 0
+      }
+      return false
+    }
+    try {
+      const rel = (await getJson(`https://api.github.com/repos/${repo}/releases/latest`)) as {
+        tag_name?: string
+        html_url?: string
+      }
+      const latest = String(rel.tag_name ?? '').replace(/^v/, '')
+      if (!latest || !isNewer(latest, current)) return { available: false, current }
+      let commit: string | undefined
+      try {
+        const commits = (await getJson(`https://api.github.com/repos/${repo}/commits?per_page=1`)) as {
+          sha?: string
+        }[]
+        commit = commits?.[0]?.sha ? commits[0].sha.slice(0, 8) : undefined
+      } catch {
+        /* 拿不到提交号不影响主流程 */
+      }
+      return { available: true, current, latest, commit, url: rel.html_url }
+    } catch (e) {
+      logger.info(`更新检查失败（已忽略）: ${e}`)
+      return { available: false, current }
+    }
+  })
+
   ipcMain.handle('ping', () => 'pong')
   logger.info('IPC handlers registered')
 }

@@ -98,6 +98,16 @@ const api = {
   // help
   openHelp: (): Promise<unknown> => ipcRenderer.invoke('help:open'),
 
+  // 窗口控制（frameless 顶栏三键）
+  windowState: (): Promise<boolean> => ipcRenderer.invoke('window:state'),
+  minimizeWindow: (): Promise<unknown> => ipcRenderer.invoke('window:minimize'),
+  toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke('window:toggleMaximize'),
+  closeWindow: (): Promise<unknown> => ipcRenderer.invoke('window:close'),
+  onWindowState: (cb: (maximized: boolean) => void): (() => void) => on('window:state', cb),
+
+  // 更新检查
+  checkUpdate: (): Promise<unknown> => ipcRenderer.invoke('update:check'),
+
   ping: (): Promise<string> => ipcRenderer.invoke('ping')
 }
 

@@ -1,6 +1,18 @@
 import type { PackageType } from '@shared/types'
 import type { VFS } from './vfs'
 
+/**
+ * 版本号清洗：Forge / NeoForge 的 `mods.toml` 常见 `version="${file.jarVersion}"`，
+ * 那是构建期由 Gradle 展开的占位符 —— jar 里若保留字面量（开发版 / CI 产物 / 二次打包），
+ * 直接入库会让界面显示「版本: ${file.jarVersion}」。这类未展开的模板一律视为「未知版本」。
+ */
+function normalizeVersion(raw: string | undefined | null): string {
+  const v = (raw ?? '').trim()
+  if (!v) return ''
+  if (v.includes('${') || v.includes('%{')) return ''
+  return v
+}
+
 export interface DetectResult {
   type: PackageType
   name: string
@@ -60,7 +72,7 @@ export function detectPackage(vfs: VFS, hint?: PackageType): DetectResult {
       const j = JSON.parse(vfs.readText(f)) as { id?: string; name?: string; version?: string }
       modId = j.id ?? ''
       name = j.name ?? ''
-      version = j.version ?? ''
+      version = normalizeVersion(j.version)
     } catch {
       /* ignore */
     }
@@ -73,7 +85,7 @@ export function detectPackage(vfs: VFS, hint?: PackageType): DetectResult {
       const verM = txt.match(/version\s*=\s*"([^"]+)"/)
       modId = idM?.[1] ?? ''
       name = nameM?.[1] ?? ''
-      version = verM?.[1] ?? ''
+      version = normalizeVersion(verM?.[1])
     } catch {
       /* ignore */
     }

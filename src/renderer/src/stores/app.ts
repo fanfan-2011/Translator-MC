@@ -24,13 +24,17 @@ interface AppState {
   settingsOpen: boolean
   exportOpen: boolean
   importOpen: boolean
+  importPaths: string[]
   issueOpen: boolean
   // toast
   toast: Toast | null
 
   setTheme: (t: 'light' | 'dark' | 'system') => void
   setView: (v: View) => void
+  createProject: (name?: string) => Promise<string>
   openProject: (id: string) => Promise<void>
+  closeProject: () => void
+  openImport: (paths: string[]) => void
   toastMsg: (text: string, kind?: Toast['kind']) => void
 
   loadProjects: () => Promise<void>
@@ -49,6 +53,16 @@ interface AppState {
 
 let toastId = 0
 
+/** 用户主动切换主题的标记（由 setTheme 置位，useTheme 采样后消费） */
+let userThemeSwitch = false
+
+/** 取出并清除「用户主动切换」标记；只有这种切换才做性能采样 */
+export function consumeUserThemeSwitch(): boolean {
+  const v = userThemeSwitch
+  userThemeSwitch = false
+  return v
+}
+
 export const useApp = create<AppState>((set, get) => ({
   theme: 'system',
   view: 'home',
@@ -64,20 +78,36 @@ export const useApp = create<AppState>((set, get) => ({
   settingsOpen: false,
   exportOpen: false,
   importOpen: false,
+  importPaths: [],
   issueOpen: false,
   toast: null,
 
   setTheme: (t) => {
+    // 标记为「用户主动切换」：只有这种切换才值得做性能采样
+    // （启动时读配置、跟随系统变化造成的切换会混入启动渲染的长帧，曾因此误判降级）
+    userThemeSwitch = true
     set({ theme: t })
-    void api.setSettings({ theme: t })
+    void api.setSettings({ ...get().settings, theme: t })
   },
 
   setView: (v) => set({ view: v }),
+
+  createProject: async (name) => {
+    const trimmed = (name ?? '').trim()
+    const finalName = trimmed || `新项目 ${get().projects.length + 1}`
+    const project = await api.createProject(finalName)
+    await get().loadProjects()
+    return project.id
+  },
 
   openProject: async (id) => {
     set({ currentProjectId: id, view: 'workspace', task: null })
     await get().loadProjectData(id)
   },
+
+  closeProject: () => set({ currentProjectId: null, packages: [], entries: [], view: 'home' }),
+
+  openImport: (paths) => set({ importPaths: paths, importOpen: paths.length > 0 }),
 
   toastMsg: (text, kind = 'info') => {
     const id = ++toastId
@@ -116,7 +146,7 @@ export const useApp = create<AppState>((set, get) => ({
   setReviewing: (reviewing) => set({ reviewing }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setExportOpen: (exportOpen) => set({ exportOpen }),
-  setImportOpen: (importOpen) => set({ importOpen }),
+  setImportOpen: (importOpen) => set({ importOpen, importPaths: importOpen ? get().importPaths : [] }),
   setIssueOpen: (issueOpen) => set({ issueOpen })
 }))
 

@@ -1,6 +1,6 @@
 {
   "name": "game-localizer",
-  "version": "1.7.6",
+  "version": "2.0.0",
   "description": "Translator MC - Minecraft 模组/资源包 AI 多功能翻译工具",
   "main": "./out/main/index.js",
   "author": "Translator MC",

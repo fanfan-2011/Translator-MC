@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
+import { BookOpen } from 'lucide-react'
 import type { GlossaryEntry } from '@shared/types'
 import { api } from '../../api'
 import { useApp } from '../../stores/app'
-import { Button, Input, Select, Checkbox } from '../ui'
+import { Button, Checkbox, EmptyState, Input, Select } from '../ui'
 import { PACKAGE_LABEL } from '../../lib/status'
 
+/**
+ * 术语表 —— 设计稿未覆盖，按 UI-SPEC 第 6 节的列表页模板推导：
+ * 操作栏（h71 / bg-surface-2 / 圆角 18）承载标题与新增术语表单（主操作「添加」），
+ * 搜索栏（h57 / bg-surface-3）承载搜索框与「共 N 条」，
+ * 表头 h41 / 行 h37（奇行 bg-alt，悬停 bg-hover），空状态用 EmptyState。
+ * 术语表为所有项目共享；单条删除沿用原有语义（不弹确认，用危险色文字按钮）。
+ */
 export function GlossaryPanel(): JSX.Element {
   const glossary = useApp((s) => s.glossary)
   const loadGlossary = useApp((s) => s.loadGlossary)
@@ -42,38 +50,41 @@ export function GlossaryPanel(): JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">术语表</h2>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索术语…"
-          className="h-8 w-56 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 操作栏：标题 + 新增术语（原文 / 译文 / 适用范围 / 区分大小写）+ 主操作「添加」 */}
+      <div className="flex h-[71px] shrink-0 items-center gap-4 rounded-tl-panel border-b border-line bg-surface-2 px-4">
+        <h2 className="shrink-0 text-lg font-semibold text-ink">术语表</h2>
 
-      <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-        <div className="flex w-40 flex-col gap-1">
-          <span className="text-xs text-slate-500">原文</span>
-          <Input
-            value={form.source}
-            onChange={(e) => setForm({ ...form, source: e.target.value })}
-            placeholder="Diamond"
-          />
+        <div className="h-7 w-px shrink-0 rounded-full bg-line" />
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-muted">原文</span>
+          {/* Input 自带 w-full，宽度由外层容器给定 */}
+          <div className="w-40 shrink-0">
+            <Input
+              value={form.source}
+              onChange={(e) => setForm({ ...form, source: e.target.value })}
+              placeholder="Diamond"
+            />
+          </div>
         </div>
-        <div className="flex w-40 flex-col gap-1">
-          <span className="text-xs text-slate-500">译文</span>
-          <Input
-            value={form.target}
-            onChange={(e) => setForm({ ...form, target: e.target.value })}
-            placeholder="钻石"
-          />
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-muted">译文</span>
+          <div className="w-40 shrink-0">
+            <Input
+              value={form.target}
+              onChange={(e) => setForm({ ...form, target: e.target.value })}
+              placeholder="钻石"
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-slate-500">适用范围</span>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-muted">适用范围</span>
           <Select
             value={form.packageType}
+            className="w-28"
             onChange={(v) => setForm({ ...form, packageType: v as GlossaryEntry['packageType'] })}
           >
             <option value="all">全部</option>
@@ -82,56 +93,98 @@ export function GlossaryPanel(): JSX.Element {
             <option value="resourcepack">资源包</option>
           </Select>
         </div>
-        <label className="flex items-center gap-1.5 pb-1.5 text-sm text-slate-600">
+
+        <label className="flex shrink-0 items-center gap-1.5 text-sm text-ink-3">
           <Checkbox
             checked={form.caseSensitive}
             onChange={(v) => setForm({ ...form, caseSensitive: v })}
           />
           区分大小写
         </label>
+
         <Button variant="primary" onClick={() => void add()}>
           添加
         </Button>
+
+        <div className="min-w-0 flex-1" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500 dark:bg-slate-800">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">原文</th>
-              <th className="px-3 py-2 text-left font-medium">译文</th>
-              <th className="px-3 py-2 text-left font-medium">适用范围</th>
-              <th className="px-3 py-2 text-left font-medium">大小写</th>
-              <th className="px-3 py-2 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filtered.map((g) => (
-              <tr key={g.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                <td className="px-3 py-1.5 font-mono text-xs text-slate-700 dark:text-slate-200">{g.source}</td>
-                <td className="px-3 py-1.5 text-slate-800 dark:text-slate-100">{g.target}</td>
-                <td className="px-3 py-1.5 text-xs text-slate-500">{PACKAGE_LABEL[g.packageType]}</td>
-                <td className="px-3 py-1.5 text-xs text-slate-500">
-                  <button onClick={() => void toggleCase(g)} className="hover:underline">
+      {/* 搜索栏 + 表格 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-line bg-surface-3 px-4">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索术语…"
+            className="h-8 w-[267px] shrink-0 rounded-input border border-line-2 bg-surface px-2.5 text-sm text-ink outline-none transition-colors focus:border-accent"
+          />
+          <div className="min-w-0 flex-1" />
+          <span className="shrink-0 text-sm text-muted-3">
+            共 {filtered.length === glossary.length ? glossary.length : `${filtered.length} / ${glossary.length}`} 条
+          </span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="min-h-0 flex-1">
+            <EmptyState
+              icon={<BookOpen className="h-5 w-5" strokeWidth={1.7} />}
+              title="还没有术语"
+              description="添加「Diamond → 钻石」这样的映射"
+            />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* 表头 */}
+            <div className="sticky top-0 z-10 flex h-[41px] items-center border-b border-line bg-surface-4 text-xs font-semibold text-muted-2">
+              <div className="w-[280px] shrink-0 pl-1">原文</div>
+              <div className="min-w-0 flex-1 pl-1">译文</div>
+              <div className="w-[120px] shrink-0 pl-1">适用范围</div>
+              <div className="w-[96px] shrink-0 pl-1">大小写</div>
+              <div className="flex w-[88px] shrink-0 items-center justify-end pr-1">操作</div>
+            </div>
+
+            {filtered.map((g, i) => (
+              <div
+                key={g.id}
+                className={`flex h-[37px] items-center border-b border-line-row ${
+                  i % 2 === 1 ? 'bg-alt' : 'bg-surface'
+                } hover:bg-hover`}
+              >
+                <div
+                  className="w-[280px] shrink-0 truncate-1 pl-1 pr-2 font-mono text-xs text-ink-4"
+                  title={g.source}
+                >
+                  {g.source}
+                </div>
+                <div className="min-w-0 flex-1 truncate-1 pl-1 pr-2 text-xs text-target" title={g.target}>
+                  {g.target}
+                </div>
+                <div className="w-[120px] shrink-0 pl-1 text-xs text-muted">
+                  {PACKAGE_LABEL[g.packageType]}
+                </div>
+                <div className="w-[96px] shrink-0 pl-1">
+                  <button
+                    type="button"
+                    title="切换区分大小写"
+                    onClick={() => void toggleCase(g)}
+                    className="app-nodrag rounded-chip px-1.5 py-0.5 text-xs text-muted transition-colors hover:bg-hover hover:text-ink"
+                  >
                     {g.caseSensitive ? '是' : '否'}
                   </button>
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  <button onClick={() => void del(g.id)} className="text-xs text-red-500 hover:underline">
+                </div>
+                <div className="flex w-[88px] shrink-0 items-center justify-end pr-1">
+                  <button
+                    type="button"
+                    onClick={() => void del(g.id)}
+                    className="app-nodrag rounded-chip px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-soft"
+                  >
                     删除
                   </button>
-                </td>
-              </tr>
+                </div>
+              </div>
             ))}
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
-                  还没有术语，添加「Diamond → 钻石」这样的映射
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   )

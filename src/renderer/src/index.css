@@ -484,6 +484,35 @@
 }
 
 /* ============================================================
+   操作栏窄宽度降级（容器查询）
+   为什么用容器查询而不是媒体查询：窗口宽度不变时，Agent 面板出现/消失
+   也会让操作栏变窄（1440 窗口下 1113 → 832），媒体查询判断不出来。
+   降级顺序（先丢最不重要的）：目标语言标签 → 已翻译计数 chip → 导入导出/问题中心。
+   注意：这里**绝不能用 overflow:hidden 兜底** —— 语言选择器的下拉弹层会被一起裁掉。
+   ============================================================ */
+.tsm-toolbar {
+  container-type: inline-size;
+}
+
+@container (max-width: 950px) {
+  .tsm-toolbar__lang-label {
+    display: none;
+  }
+}
+
+@container (max-width: 890px) {
+  .tsm-toolbar__chip {
+    display: none;
+  }
+}
+
+@container (max-width: 780px) {
+  .tsm-toolbar__aux {
+    display: none;
+  }
+}
+
+/* ============================================================
    主题切换动画：视口过渡（View Transitions）
    useTheme 调用 document.startViewTransition()，合成器把「旧帧」和「新帧」
    两张快照做交叉淡化 —— 既不是硬切，也不是逐元素颜色过渡

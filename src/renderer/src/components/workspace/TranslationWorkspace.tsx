@@ -139,16 +139,18 @@ export function TranslationWorkspace(): JSX.Element {
   const busy = !!task || !!reviewing
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <WorkspaceToolbar
-          busy={busy}
-          onTranslate={() => void startTranslate(false)}
-          onRetranslate={() => void startTranslate(true)}
-          onReview={() => void startReview()}
-          onClear={clearAll}
-        />
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 操作栏占满整宽：Agent 面板只与下方的筛选/表格并排，
+          它被压在操作栏下面，操作栏里的语言选择器也绝不会被挤到面板上 */}
+      <WorkspaceToolbar
+        busy={busy}
+        onTranslate={() => void startTranslate(false)}
+        onRetranslate={() => void startTranslate(true)}
+        onReview={() => void startReview()}
+        onClear={clearAll}
+      />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
           <WorkspaceFilters
             search={search}
             onSearch={setSearch}
@@ -178,9 +180,9 @@ export function TranslationWorkspace(): JSX.Element {
             )}
           </div>
         </div>
-      </div>
 
-      {busy ? <AgentPanel /> : null}
+        {busy ? <AgentPanel /> : null}
+      </div>
     </div>
   )
 }

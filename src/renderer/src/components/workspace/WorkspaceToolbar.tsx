@@ -46,8 +46,8 @@ export function WorkspaceToolbar({
   }
 
   return (
-    <div className="flex h-[71px] shrink-0 items-center gap-4 rounded-tl-panel border-b border-line bg-surface-2 px-4">
-      <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-primary-line bg-primary-soft px-3 text-sm font-semibold text-ink">
+    <div className="tsm-toolbar relative z-20 flex h-[71px] min-w-0 shrink-0 items-center gap-4 rounded-tl-panel border-b border-line bg-surface-2 px-4">
+      <span className="tsm-toolbar__chip inline-flex h-8 shrink-0 items-center rounded-full border border-primary-line bg-primary-soft px-3 text-sm font-semibold text-ink">
         已翻译 {counts.translated} / {counts.total}
       </span>
 
@@ -69,14 +69,13 @@ export function WorkspaceToolbar({
 
       <div className="h-7 w-px shrink-0 rounded-full bg-line" />
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="tsm-toolbar__aux flex shrink-0 items-center gap-2">
         <Button onClick={() => setExportOpen(true)}>导入/导出</Button>
         <Button onClick={() => setIssueOpen(true)}>
           <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.8} />
           问题中心
         </Button>
       </div>
-
       <div className="min-w-0 flex-1" />
 
       {!aiReady ? (
@@ -90,7 +89,7 @@ export function WorkspaceToolbar({
       ) : null}
 
       <div className="flex h-[33px] shrink-0 items-center gap-2 rounded-full border border-line-3 bg-surface px-3 shadow-input">
-        <span className="shrink-0 text-sm font-medium text-muted">目标语言</span>
+        <span className="tsm-toolbar__lang-label shrink-0 text-sm font-medium text-muted">目标语言</span>
         <Dropdown
           value={langCode}
           shape="pill"

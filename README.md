@@ -12,6 +12,9 @@ Minecraft AI 翻译工具 —— 支持对 `Minecraft Mod` / `Resource Pack` / `
  - **完全免费开源**
 
 ## 软件截图
+
+> 图片使用的是jsdelivr+GitHub仓库的图床，加载有时可能较慢，请耐心等待。
+
 **主界面：**
 ![主界面](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-1.png)
 

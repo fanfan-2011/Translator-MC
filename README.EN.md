@@ -12,6 +12,9 @@ Minecraft AI translation tool — supports AI translation for `Minecraft Mod` / 
  - **Completely free and open source**
 
 ## Screenshots
+
+> The images are hosted via jsDelivr + a GitHub repository, so loading may sometimes be slow. Please be patient.
+
 **Main Interface:**
 ![Main Interface](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-1.png)
 

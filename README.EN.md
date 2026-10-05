@@ -12,17 +12,17 @@ Minecraft AI translation tool — supports AI translation for `Minecraft Mod` / 
  - **Completely free and open source**
 
 ## Screenshots
-**Main interface:**
-![main](screenshots/image2.0-1.png)
+**Main Interface:**
+![Main Interface](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-1.png)
 
-**Translation interface:**
-![translate](screenshots/image2.0-2.png)
+**Translation Interface:**
+![Translation Interface](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-2.png)
 
-**Translation memory:**
-![memory](screenshots/image2.0-3.png)
+**Translation Memory:**
+![Translation Memory](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-3.png)
 
-**Translation history:**
-![history](screenshots/image2.0-4.png)
+**Translation History:**
+![Translation History](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-4.png)
 
 
 

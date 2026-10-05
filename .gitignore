@@ -44,7 +44,7 @@ help/help.tmhelp
 screenshot.png
 
 # 界面截图（含本地真实项目数据，不公开）
-screenshots/
+# screenshots/
 
 # 本地 npm 镜像配置（不提交，避免强制他人走 npmmirror）
 .npmrc

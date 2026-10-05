@@ -13,16 +13,16 @@ Minecraft AI 翻译工具 —— 支持对 `Minecraft Mod` / `Resource Pack` / `
 
 ## 软件截图
 **主界面：**
-![main](screenshots/image2.0-1.png)
+![主界面](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-1.png)
 
 **翻译界面：**
-![translate](screenshots/image2.0-2.png)
+![翻译界面](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-2.png)
 
 **翻译记忆：**
-![memory](screenshots/image2.0-3.png)
+![翻译记忆](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-3.png)
 
 **翻译历史：**
-![history](screenshots/image2.0-4.png)
+![翻译历史](https://gcore.jsdelivr.net/gh/fanfan-2011/TSM-images@main/image2.0-4.png)
 
 
 

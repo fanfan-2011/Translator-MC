@@ -34,8 +34,8 @@ Minecraft AI 翻译工具 —— 支持对 `Minecraft Mod` / `Resource Pack` / `
 
 | 文件名                                | 文件类型   |
 |------------------------------------|--------|
-| `Translator-MC-mobile-win-版本号.zip` | 免安装版   |
-| `Translator-MC-Setup-win-版本号.exe`  | exe安装包 |
+| `Translator-MC-mobile-win-当前版本的版本号.zip` | 免安装版   |
+| `Translator-MC-Setup-win-当前版本的版本号.exe`  | exe安装包 |
 
 > 为保证使用体验，请下载使用最新版本应用
 

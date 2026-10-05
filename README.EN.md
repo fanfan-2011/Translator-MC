@@ -32,10 +32,10 @@ Minecraft AI translation tool — supports AI translation for `Minecraft Mod` / 
 
 Download the latest binary from "Releases":
 
-| File name                                | File type   |
+| File Name                                | File Type   |
 |------------------------------------|--------|
-| `Translator-MC-mobile-win-version.zip` | Portable version   |
-| `Translator-MC-Setup-win-version.exe`  | exe installer |
+| `Translator-MC-mobile-win-current version number.zip` | Portable version   |
+| `Translator-MC-Setup-win-current version number.exe`  | exe installer |
 
 > To ensure the best experience, please download and use the latest version of the application
 

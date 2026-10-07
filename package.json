@@ -4,7 +4,7 @@
   "description": "Translator MC - Minecraft 模组/资源包 AI 多功能翻译工具",
   "main": "./out/main/index.js",
   "author": "Translator MC",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",

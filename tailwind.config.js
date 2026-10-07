@@ -60,7 +60,24 @@ module.exports = {
         hover: 'var(--tsm-hover)',
         selected: 'var(--tsm-selected)',
         // 主面板与灰色外壳之间的 1px 硬边界（设计稿实测为纯黑 1px 线）
-        edge: '#000000'
+        edge: '#000000',
+        // 更新弹窗（v2.1.0）：Figma 固定奶油色，**不随亮/暗主题变化**
+        // （令牌值在 index.css 的 :root，不进 .dark）
+        upd: {
+          bg: 'var(--upd-bg)',
+          card: 'var(--upd-card)',
+          white: 'var(--upd-white)',
+          line: {
+            DEFAULT: 'var(--upd-line)',
+            2: 'var(--upd-line-2)'
+          },
+          ink: 'var(--upd-ink)',
+          muted: 'var(--upd-muted)',
+          accent: 'var(--upd-accent)',
+          sel: 'var(--upd-sel)',
+          track: 'var(--upd-track)',
+          fill: 'var(--upd-fill)'
+        }
       },
       fontFamily: {
         sans: [
@@ -83,7 +100,14 @@ module.exports = {
         sm: ['13px', '17px'],
         base: ['14px', '18px'],
         md: ['15px', '19px'],
-        lg: ['16px', '20px']
+        lg: ['16px', '20px'],
+        // 更新弹窗专用字号 / 行高（Figma 实测）
+        'upd-body2': ['17px', '22px'],
+        'upd-lg2': ['18px', '24px'],
+        'upd-h3': ['22px', '28px'],
+        'upd-h1': ['28px', '34px'],
+        'upd-h2': ['30px', '38px'],
+        'sm-loose': ['13px', '22px']
       },
       borderRadius: {
         win: '6px',
@@ -94,6 +118,9 @@ module.exports = {
         card: '16px',
         panel: '18px',
         update: '20px',
+        // 更新弹窗：外框 28px、进度窗 9px
+        upd: '28px',
+        updwin: '9px',
         full: '999px'
       },
       boxShadow: {

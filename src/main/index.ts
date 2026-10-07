@@ -4,8 +4,15 @@ import { initDatabase, closeDatabase } from './db/database'
 import { registerIpcHandlers } from './ipc'
 import { logger } from './logger'
 import { runSelfTest } from './selftest'
+import { startAutoCheck, type AutoCheckHandle } from './update/check'
+import { initUpdateWindows, currentVersionForUpdate, getDownloader, getLiveState, setLiveState } from './update/runtime'
+import { loadUpdatePrefs } from './update/prefs'
 
-function createWindow(): void {
+/** 主窗口引用（更新流程要隐藏/恢复它，见 main/update/windows.ts） */
+let mainWindow: BrowserWindow | null = null
+let autoCheck: AutoCheckHandle | null = null
+
+function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -23,6 +30,11 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+
+  mainWindow = win
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
   win.on('ready-to-show', () => win.show())
@@ -44,6 +56,8 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return win
 }
 
 app.whenReady().then(async () => {
@@ -63,6 +77,34 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  // 更新：进度窗流程（需求 6）
+  initUpdateWindows({
+    getMain: () => mainWindow,
+    preload: join(__dirname, '../preload/index.js'),
+    rendererIndex: join(__dirname, '../renderer/index.html'),
+    devUrl: process.env['ELECTRON_RENDERER_URL'],
+    onClosed: () => {
+      // 进度窗被销毁时：若还在下载就取消（分片保留，下次可续传）
+      if (getLiveState().phase === 'downloading') {
+        getDownloader().cancel()
+        setLiveState({ phase: 'cancelled' })
+      }
+    }
+  })
+
+  // 更新：启动即检查 + 每 10 分钟一次（需求 1）；发现新版本推给主窗口刷新左下角卡片
+  autoCheck = startAutoCheck({
+    current: currentVersionForUpdate(),
+    // 两端版本相同时优先用户上次用过的来源（见 prefs.ts 的 lastGoodSource）
+    preferSource: () => loadUpdatePrefs().lastGoodSource ?? null,
+    onResult: (r) => {
+      for (const e of r.errors) logger.info(`自动更新检查失败（已忽略）: ${e.source} — ${e.message}`)
+    },
+    onNewVersion: (r) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:available', r)
+    }
+  })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -73,5 +115,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  autoCheck?.stop()
   closeDatabase()
 })

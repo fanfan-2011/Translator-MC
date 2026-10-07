@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { dirname, join } from 'path'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import * as db from './db/database'
@@ -11,6 +11,13 @@ import { llmListModels } from './llm/provider'
 import { encryptSecret, decryptSecret } from './security'
 import { logger } from './logger'
 import { DEFAULT_LLM_CONFIG, type AppSettings, type ExportOptions, type LLMConfig } from '@shared/types'
+import { checkForUpdate } from './update/check'
+import { fetchRelease, probeSize } from './update/sources'
+import { exportConfigTo, importConfigFrom } from './update/config-file'
+import { loadUpdatePrefs, saveUpdatePrefs, type UpdatePrefs } from './update/prefs'
+import { backupRoot, currentVersionForUpdate, getDownloader, getLiveState, getUpdateWindows, setLiveState, updateRoot } from './update/runtime'
+import type { DownloadProgress } from './update/downloader'
+import type { InstallerKind, ReleaseInfo, UpdateSource } from './update/types'
 
 function loadLlmConfig(): LLMConfig {
   const raw = db.getSetting('llm_config')
@@ -247,48 +254,284 @@ export function registerIpcHandlers(): void {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
-  // ---------- 更新检查（GitHub Releases；离线/失败一律静默） ----------
+  // ---------- 更新与用户配置（v2.1.0；网络失败一律静默） ----------
+
+  /** 判「过慢」的阈值：平均低于 100KB/s 且已下 15 秒 → 换另一端（128MB 包在 100KB/s 下要 20 分钟） */
+  const SLOW_SPEED_BPS = 100 * 1024
+  const SLOW_FOR_MS = 15_000
+
   ipcMain.handle('update:check', async () => {
-    const current = app.getVersion()
-    const repo = 'fanfan-2011/Translator-MC'
-    const getJson = async (url: string): Promise<unknown> => {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Translator-MC', Accept: 'application/vnd.github+json' },
-        signal: AbortSignal.timeout(6000)
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return res.json()
-    }
-    const isNewer = (a: string, b: string): boolean => {
-      const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
-      const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
-      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-        const d = (pa[i] ?? 0) - (pb[i] ?? 0)
-        if (d !== 0) return d > 0
+    const result = await checkForUpdate(currentVersionForUpdate(), {
+      preferSource: loadUpdatePrefs().lastGoodSource ?? null
+    })
+    for (const e of result.errors) logger.info(`更新检查失败（已忽略）: ${e.source} — ${e.message}`)
+    saveUpdatePrefs({ lastCheckAt: result.checkedAt })
+    return result
+  })
+
+  ipcMain.handle('update:get-prefs', () => loadUpdatePrefs())
+  ipcMain.handle('update:set-prefs', (_e, patch: Partial<UpdatePrefs>) => saveUpdatePrefs(patch ?? {}))
+  /** 进度窗刚挂载时拉一次状态（早期进度事件可能已经发过） */
+  ipcMain.handle('update:get-state', () => getLiveState())
+
+  /** 进度窗：内容装不下时按需变大（只增不减，见 windows.ts 的 fitContent 注释） */
+  ipcMain.handle(
+    'update:fit-window',
+    (_e, metrics: { innerWidth: number; innerHeight: number; neededWidth: number; neededHeight: number }) =>
+      getUpdateWindows()?.fitContent(metrics) ?? { ok: false }
+  )
+
+  ipcMain.handle(
+    'update:start',
+    async (
+      event,
+      req: { source?: UpdateSource; kind?: InstallerKind; backup?: boolean; remember?: boolean }
+    ) => {
+      const source: UpdateSource = req?.source === 'gitcode' ? 'gitcode' : 'github'
+      const kind: InstallerKind = req?.kind === 'zip' ? 'zip' : 'exe'
+      const wm = getUpdateWindows()
+      if (!wm) return { ok: false, error: '更新模块未初始化' }
+
+      // 记住本次设置（需求 4）
+      saveUpdatePrefs(
+        req?.remember === false ? { remember: false, backup: req?.backup === true } : { source, kind, remember: true, backup: req?.backup === true }
+      )
+
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const stamp = new Date().toISOString().slice(0, 10)
+      const saveOpts = {
+        title: '导出用户配置（更新前备份）',
+        defaultPath: `Translator-MC-config-${stamp}.json`,
+        filters: [{ name: 'Translator MC 配置', extensions: ['json'] }]
       }
-      return false
-    }
-    try {
-      const rel = (await getJson(`https://api.github.com/repos/${repo}/releases/latest`)) as {
-        tag_name?: string
-        html_url?: string
+
+      // 1) 可选：更新前导出用户配置（需求 4，用系统资源管理器选位置）
+      if (req?.backup) {
+        const picked = win ? await dialog.showSaveDialog(win, saveOpts) : await dialog.showSaveDialog(saveOpts)
+        if (picked.canceled || !picked.filePath) return { ok: false, cancelled: true }
+        try {
+          exportConfigTo(picked.filePath, app.getVersion())
+        } catch (e) {
+          return { ok: false, error: `导出配置失败：${e instanceof Error ? e.message : String(e)}` }
+        }
       }
-      const latest = String(rel.tag_name ?? '').replace(/^v/, '')
-      if (!latest || !isNewer(latest, current)) return { available: false, current }
-      let commit: string | undefined
+
+      // 2) 取该来源的版本与资产
+      let release: ReleaseInfo
       try {
-        const commits = (await getJson(`https://api.github.com/repos/${repo}/commits?per_page=1`)) as {
-          sha?: string
-        }[]
-        commit = commits?.[0]?.sha ? commits[0].sha.slice(0, 8) : undefined
-      } catch {
-        /* 拿不到提交号不影响主流程 */
+        release = await fetchRelease(source)
+      } catch (e) {
+        return { ok: false, error: `获取更新信息失败：${e instanceof Error ? e.message : String(e)}` }
       }
-      return { available: true, current, latest, commit, url: rel.html_url }
-    } catch (e) {
-      logger.info(`更新检查失败（已忽略）: ${e}`)
-      return { available: false, current }
+      const asset = release.assets[kind]
+      if (!asset) return { ok: false, error: `该来源没有提供 ${kind} 安装包` }
+      const total = asset.size ?? (await probeSize(asset.url)) ?? 0
+
+      // 3) 隐藏主窗、只留进度窗（需求 6）
+      setLiveState({
+        phase: 'downloading',
+        source,
+        kind,
+        version: release.version,
+        received: 0,
+        total,
+        percent: 0,
+        speed: 0,
+        path: undefined,
+        error: undefined,
+        pageUrl: release.pageUrl
+      })
+      wm.open(source)
+      wm.send('update:progress', getLiveState())
+
+      // 4) 下载（异步；进度推给进度窗）
+      const dl = getDownloader()
+      const task = {
+        source,
+        kind,
+        version: release.version,
+        name: asset.name,
+        url: asset.url,
+        total,
+        sha256: asset.sha256
+      }
+      // 记住「用户实际用了哪个源」：两端版本相同时下次优先它（见 prefs.lastGoodSource）
+      saveUpdatePrefs({ lastGoodSource: source })
+
+      void (async () => {
+        // 进度回调顺带监测「过慢」：某些网络下 GitHub 只有 ~0.1MB/s 还会断连，
+        // 一直等下去等于卡死，久慢就换另一端重来（只换一次）。
+        // 用「本次尝试的平均速度」判定，不用平滑瞬时速度 —— 后者网络一抖动就把计时清零，
+        // 实测要 50 秒才触发，太慢。
+        let attemptStart = Date.now()
+        let attemptBaseBytes = 0
+        let abortForSlow = false
+        const onProgress = (p: DownloadProgress): void => {
+          const elapsed = Date.now() - attemptStart
+          const avg = ((p.received - attemptBaseBytes) * 1000) / Math.max(1, elapsed)
+          if (!abortForSlow && elapsed >= SLOW_FOR_MS && p.received > 0 && avg < SLOW_SPEED_BPS) {
+            abortForSlow = true
+            logger.info(
+              `下载过慢（平均 ${Math.round(avg / 1024)}KB/s，持续 ${Math.round(elapsed / 1000)} 秒），换另一端重试`
+            )
+            dl.cancel()
+          }
+          wm.send('update:progress', setLiveState({ ...p }))
+        }
+
+        /** 换源：取另一端的**同一版本**资产；版本不同就不换（别把用户带到另一个版本去） */
+        const alternate = async (
+          src: UpdateSource
+        ): Promise<{ url: string; size?: number; sha256?: string; pageUrl?: string } | null> => {
+          try {
+            const rel = await fetchRelease(src)
+            if (rel.version !== release.version) return null
+            const a = rel.assets[kind]
+            if (!a) return null
+            const size = a.size ?? (await probeSize(a.url)) ?? 0
+            return { url: a.url, size, sha256: a.sha256, pageUrl: rel.pageUrl }
+          } catch (e) {
+            logger.warn(`换源到 ${src} 失败：${e instanceof Error ? e.message : String(e)}`)
+            return null
+          }
+        }
+
+        let curSource: UpdateSource = source
+        let res = await dl.start(task, onProgress)
+
+        // 失败、或因过慢被我们主动中断 → 自动换另一端再试一次
+        if (res.state === 'error' || (abortForSlow && res.state === 'cancelled')) {
+          const other: UpdateSource = curSource === 'github' ? 'gitcode' : 'github'
+          const alt = await alternate(other)
+          if (alt) {
+            logger.info(`改用 ${other} 重试下载`)
+            // 换源要丢弃分片：两端虽同名同大小，但不保证逐字节相同，混着写会得到坏文件
+            dl.clearPart({ version: task.version, name: task.name })
+            curSource = other
+            // 重置过慢判定：新一轮尝试从零算平均速度
+            attemptStart = Date.now()
+            attemptBaseBytes = 0
+            abortForSlow = false
+            setLiveState({ source: other, pageUrl: alt.pageUrl, error: undefined, received: 0, percent: 0, speed: 0 })
+            wm.setSource(other)
+            res = await dl.start(
+              {
+                source: other,
+                kind,
+                version: release.version,
+                name: task.name,
+                url: alt.url,
+                total: alt.size,
+                sha256: alt.sha256
+              },
+              onProgress
+            )
+          }
+        }
+
+        if (res.state === 'done') {
+          wm.send('update:finish', setLiveState({ phase: 'done', path: res.path, received: res.bytes ?? total, percent: 100 }))
+          // 需求 7：exe → 打开安装包；zip → 打开该压缩包
+          if (res.path) {
+            let openErr = ''
+            try {
+              openErr = await shell.openPath(res.path)
+              if (openErr) logger.error(`打开安装包失败: ${openErr}`)
+            } catch (e) {
+              openErr = String(e)
+              logger.error(`打开安装包异常: ${e}`)
+            }
+            // 用户 2026-10-06 裁决：安装包一打开就**直接退出应用**，后面交给安装程序。
+            // zip 同理：便携包要覆盖安装目录，应用还在跑会锁住文件导致解压失败。
+            // 所以这里绝不能 showMain() 回主界面（那是「覆盖安装时自己锁自己」）。
+            if (!openErr) {
+              await new Promise((r) => setTimeout(r, 900))
+              app.quit()
+              return
+            }
+            logger.warn('安装包打开失败，保留主界面让用户手动打开')
+          }
+          setTimeout(() => {
+            wm.close()
+          }, 1200)
+        } else if (res.state === 'cancelled') {
+          // 用户主动取消 → 关进度窗、回主界面（需求 6）
+          wm.send('update:finish', setLiveState({ phase: 'cancelled' }))
+          wm.close()
+        } else {
+          // 失败：**不要关窗**！把「重试 / 打开下载页 / 打开文件夹」三条出路留给用户（需求 D）。
+          // 关掉的话用户只剩一句错误信息，无处可去。
+          wm.send('update:finish', setLiveState({ phase: 'error', error: res.error }))
+        }
+      })()
+
+      return { ok: true, version: release.version, total, source, kind, pageUrl: release.pageUrl }
     }
+  )
+
+  /** 取消下载并回到主界面（需求 6；分片保留供下次续传） */
+  ipcMain.handle('update:cancel', () => {
+    getDownloader().cancel()
+    setLiveState({ phase: 'cancelled' })
+    getUpdateWindows()?.close()
+    return { ok: true }
+  })
+
+  /** 只关进度窗（例如用户点叉号，取消逻辑由渲染层先调 update:cancel） */
+  ipcMain.handle('update:close-window', () => {
+    getUpdateWindows()?.close()
+    return { ok: true }
+  })
+
+  /**
+   * 失败出路①：打开 Release 下载页，用户可手动下载。
+   * 网络环境千奇百怪，任何自动流程都可能卡住 —— 给用户一条自己能走通的路。
+   */
+  ipcMain.handle('update:open-page', async () => {
+    const url = getLiveState().pageUrl
+    if (!url) return { ok: false, error: '没有可打开的下载页' }
+    await shell.openExternal(url)
+    return { ok: true }
+  })
+
+  /** 失败出路②：打开下载目录（能看到已下载 / 下载到一半的文件，可手动拷走） */
+  ipcMain.handle('update:open-folder', async () => {
+    const live = getLiveState()
+    const dir = live.version ? join(updateRoot(), live.version) : updateRoot()
+    await mkdir(dir, { recursive: true })
+    const err = await shell.openPath(dir)
+    return err ? { ok: false, error: err } : { ok: true }
+  })
+
+  // ---------- 用户配置导出 / 导入（需求 4、5） ----------
+  ipcMain.handle('config:export', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const stamp = new Date().toISOString().slice(0, 10)
+    const opts = {
+      title: '导出用户配置',
+      defaultPath: `Translator-MC-config-${stamp}.json`,
+      filters: [{ name: 'Translator MC 配置', extensions: ['json'] }]
+    }
+    const picked = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (picked.canceled || !picked.filePath) return { ok: false, cancelled: true }
+    try {
+      const snapshot = exportConfigTo(picked.filePath, app.getVersion())
+      return { ok: true, path: picked.filePath, counts: snapshot.counts }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  ipcMain.handle('config:import', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const opts = {
+      title: '导入用户配置',
+      properties: ['openFile' as const],
+      filters: [{ name: 'Translator MC 配置', extensions: ['json'] }]
+    }
+    const picked = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+    if (picked.canceled || !picked.filePaths[0]) return { ok: false, cancelled: true }
+    return importConfigFrom(picked.filePaths[0], { backupDir: backupRoot(), appVersion: app.getVersion() })
   })
 
   ipcMain.handle('ping', () => 'pong')

@@ -1,0 +1,80 @@
+name: release
+
+# 打 tag（形如 v2.1.0）即触发：在 GitHub 的 Windows runner 上构建安装包与便携 zip，
+# 然后自动创建/更新对应的 Release 并附上两个产物。
+# 为什么放 CI：本地传 130MB+ 的附件又慢又容易中断（上次就断过一回），CI 在本机内网直传快得多。
+on:
+  push:
+    tags:
+      - 'v*'
+  # 允许手动重跑（修工作流或补传时用）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (gate)
+        run: npm run typecheck
+
+      # build:win = build-help.js（把 help/ 打包成 help.tmhelp）→ electron-vite build → electron-builder --win
+      # 目标见 package.json 的 build.win.target = ["nsis","zip"]，一条命令同时出：
+      #   release/Translator-MC-Setup-win-<version>.exe
+      #   release/Translator-MC-mobile-win-<version>.zip
+      # 注意：这一步**不传 GH_TOKEN**，避免 electron-builder 自作主张去发布。
+      - name: Build Windows artifacts
+        run: npm run build:win
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter *.exe | Select-Object Name, Length
+          Get-ChildItem release -Filter *.zip | Select-Object Name, Length
+
+      # Release notes 直接取 updatelog.md 里对应版本那一段，避免两处维护
+      - name: Extract release notes from updatelog.md
+        shell: pwsh
+        run: |
+          $ver = '${{ github.ref_name }}'.TrimStart('v')
+          $md = Get-Content -Raw -Encoding utf8 updatelog.md
+          $pattern = "(?ms)^## v$([regex]::Escape($ver))[^\r\n]*\r?\n(.*?)(?=^## |\z)"
+          $m = [regex]::Match($md, $pattern)
+          if (-not $m.Success) { throw "updatelog.md 中找不到 v$ver 版本段" }
+          $body = $m.Groups[1].Value.Trim()
+          Set-Content -Path release-notes.md -Value $body -Encoding utf8
+          Write-Output "----- release-notes.md -----"
+          Get-Content release-notes.md
+
+      - name: Publish release with assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Translator MC ${{ github.ref_name }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            release/Translator-MC-Setup-win-*.exe
+            release/Translator-MC-mobile-win-*.zip
+
+      - name: Verify uploaded assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view '${{ github.ref_name }}' --json tagName,name,assets --jq '.assets[] | "\(.name)  \(.size) bytes"'

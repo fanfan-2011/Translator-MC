@@ -12,6 +12,7 @@ import { SettingsModal } from './components/settings/SettingsModal'
 import { ExportModal } from './components/export/ExportModal'
 import { ImportModal } from './components/home/ImportModal'
 import { IssuesPanel } from './components/issues/IssuesPanel'
+import { UpdateFlowHost } from './components/update/UpdateFlowHost'
 
 /**
  * 运行时性能自适应：**只在用户主动切换主题后**采样 24 帧（由 store 的 setTheme 置位标记）。
@@ -199,6 +200,8 @@ export default function App(): JSX.Element {
       <ImportModal />
       <IssuesPanel />
       <Toast />
+      {/* 更新弹窗流程（详情 58:84 → 配置 63:325 → 下载）的顶层宿主 */}
+      <UpdateFlowHost />
     </div>
   )
 }

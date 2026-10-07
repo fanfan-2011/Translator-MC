@@ -120,21 +120,127 @@ export const api = {
   closeWindow: (): Promise<void> => window.api.closeWindow() as Promise<void>,
   onWindowState: (cb: (maximized: boolean) => void): (() => void) => window.api.onWindowState(cb),
 
-  // 更新检查（GitHub Releases）
-  checkUpdate: (): Promise<UpdateInfo> => window.api.checkUpdate() as Promise<UpdateInfo>
+  // 更新与用户配置（v2.1.0）
+  checkUpdate: (): Promise<CheckResult> => window.api.checkUpdate() as Promise<CheckResult>,
+  getUpdatePrefs: (): Promise<UpdatePrefs> => window.api.getUpdatePrefs() as Promise<UpdatePrefs>,
+  setUpdatePrefs: (patch: Partial<UpdatePrefs>): Promise<UpdatePrefs> =>
+    window.api.setUpdatePrefs(patch) as Promise<UpdatePrefs>,
+  getUpdateState: (): Promise<UpdateProgressState> => window.api.getUpdateState() as Promise<UpdateProgressState>,
+  fitUpdateWindow: (metrics: {
+    innerWidth: number
+    innerHeight: number
+    neededWidth: number
+    neededHeight: number
+  }): Promise<{ ok: boolean; resized?: boolean }> =>
+    window.api.fitUpdateWindow(metrics) as Promise<{ ok: boolean; resized?: boolean }>,
+  startUpdate: (req: { source: UpdateSource; kind: InstallerKind; backup?: boolean; remember?: boolean }): Promise<UpdateStartResult> =>
+    window.api.startUpdate(req) as Promise<UpdateStartResult>,
+  cancelUpdate: (): Promise<{ ok: boolean }> => window.api.cancelUpdate() as Promise<{ ok: boolean }>,
+  closeUpdateWindow: (): Promise<{ ok: boolean }> => window.api.closeUpdateWindow() as Promise<{ ok: boolean }>,
+  /** 失败出路：打开 Release 下载页 / 打开下载目录 */
+  openUpdatePage: (): Promise<{ ok: boolean; error?: string }> =>
+    window.api.openUpdatePage() as Promise<{ ok: boolean; error?: string }>,
+  openUpdateFolder: (): Promise<{ ok: boolean; error?: string }> =>
+    window.api.openUpdateFolder() as Promise<{ ok: boolean; error?: string }>,
+  exportConfig: (): Promise<ConfigExportResult> => window.api.exportConfig() as Promise<ConfigExportResult>,
+  importConfig: (): Promise<ConfigImportResult> => window.api.importConfig() as Promise<ConfigImportResult>,
+  onUpdateProgress: (cb: (s: UpdateProgressState) => void): (() => void) =>
+    window.api.onUpdateProgress((d: unknown) => cb(d as UpdateProgressState)),
+  onUpdateFinish: (cb: (s: UpdateProgressState) => void): (() => void) =>
+    window.api.onUpdateFinish((d: unknown) => cb(d as UpdateProgressState)),
+  onUpdateAvailable: (cb: (r: CheckResult) => void): (() => void) =>
+    window.api.onUpdateAvailable((d: unknown) => cb(d as CheckResult)),
+  onUpdateSource: (cb: (d: { source: UpdateSource }) => void): (() => void) =>
+    window.api.onUpdateSource((d: unknown) => cb(d as { source: UpdateSource }))
 }
 
-export interface UpdateInfo {
-  /** 是否存在比当前版本更新的已发布版本 */
-  available: boolean
-  /** 当前运行版本 */
-  current: string
-  /** 远端最新版本号（去掉 v 前缀） */
-  latest?: string
-  /** 远端最新提交短哈希 */
+export type UpdateSource = 'github' | 'gitcode'
+export type InstallerKind = 'exe' | 'zip'
+
+export interface AssetRefInfo {
+  name: string
+  url: string
+  size?: number
+  sha256?: string
+}
+
+/** 某一端的 Release 信息（后端归一化后） */
+export interface ReleaseInfo {
+  source: UpdateSource
+  tag: string
+  version: string
+  changelog: string
   commit?: string
-  /** Release 页面地址 */
-  url?: string
+  prerelease: boolean
+  publishedAt?: string
+  pageUrl?: string
+  assets: { exe?: AssetRefInfo; zip?: AssetRefInfo }
+  channel: 'api' | 'atom'
+}
+
+export interface CheckResult {
+  current: string
+  available: boolean
+  /** 较新的一端（两端都有则取版本较高者） */
+  best?: ReleaseInfo
+  perSource: { github: ReleaseInfo | null; gitcode: ReleaseInfo | null }
+  errors: { source: UpdateSource; message: string }[]
+  checkedAt: number
+}
+
+export interface UpdatePrefs {
+  source: UpdateSource | null
+  kind: InstallerKind | null
+  remember: boolean
+  backup: boolean
+  lastCheckAt?: number
+  lastNotifiedVersion?: string
+}
+
+/** 下载进度 / 状态（进度窗用） */
+export interface UpdateProgressState {
+  phase: 'idle' | 'downloading' | 'done' | 'error' | 'cancelled'
+  source?: UpdateSource
+  kind?: InstallerKind
+  version?: string
+  received: number
+  total: number
+  percent: number
+  /** 字节/秒 */
+  speed: number
+  path?: string
+  error?: string
+}
+
+export interface UpdateStartResult {
+  ok: boolean
+  cancelled?: boolean
+  error?: string
+  version?: string
+  total?: number
+  source?: UpdateSource
+  kind?: InstallerKind
+  pageUrl?: string
+}
+
+export interface ConfigExportResult {
+  ok: boolean
+  cancelled?: boolean
+  error?: string
+  path?: string
+  counts?: { glossary: number; memory: number; apiKeyEncrypted: boolean; apiKeyIncluded: boolean }
+}
+
+export interface ConfigImportResult {
+  ok: boolean
+  cancelled?: boolean
+  error?: string
+  settingsApplied?: string[]
+  glossaryAdded?: number
+  glossarySkipped?: number
+  memoryUpserted?: number
+  backupPath?: string
+  warnings?: string[]
 }
 
 export interface TranslateProgress {

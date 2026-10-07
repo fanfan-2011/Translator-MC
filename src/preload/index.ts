@@ -105,8 +105,23 @@ const api = {
   closeWindow: (): Promise<unknown> => ipcRenderer.invoke('window:close'),
   onWindowState: (cb: (maximized: boolean) => void): (() => void) => on('window:state', cb),
 
-  // 更新检查
+  // 更新与用户配置（v2.1.0）
   checkUpdate: (): Promise<unknown> => ipcRenderer.invoke('update:check'),
+  getUpdatePrefs: (): Promise<unknown> => ipcRenderer.invoke('update:get-prefs'),
+  setUpdatePrefs: (patch: unknown): Promise<unknown> => ipcRenderer.invoke('update:set-prefs', patch),
+  getUpdateState: (): Promise<unknown> => ipcRenderer.invoke('update:get-state'),
+  fitUpdateWindow: (metrics: unknown): Promise<unknown> => ipcRenderer.invoke('update:fit-window', metrics),
+  startUpdate: (req: unknown): Promise<unknown> => ipcRenderer.invoke('update:start', req),
+  cancelUpdate: (): Promise<unknown> => ipcRenderer.invoke('update:cancel'),
+  closeUpdateWindow: (): Promise<unknown> => ipcRenderer.invoke('update:close-window'),
+  openUpdatePage: (): Promise<unknown> => ipcRenderer.invoke('update:open-page'),
+  openUpdateFolder: (): Promise<unknown> => ipcRenderer.invoke('update:open-folder'),
+  exportConfig: (): Promise<unknown> => ipcRenderer.invoke('config:export'),
+  importConfig: (): Promise<unknown> => ipcRenderer.invoke('config:import'),
+  onUpdateProgress: (cb: (data: unknown) => void): (() => void) => on('update:progress', cb),
+  onUpdateFinish: (cb: (data: unknown) => void): (() => void) => on('update:finish', cb),
+  onUpdateAvailable: (cb: (data: unknown) => void): (() => void) => on('update:available', cb),
+  onUpdateSource: (cb: (data: unknown) => void): (() => void) => on('update:source', cb),
 
   ping: (): Promise<string> => ipcRenderer.invoke('ping')
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Monitor, Moon, Sun, Zap } from 'lucide-react'
+import { Download, Monitor, Moon, Sun, Upload, Zap } from 'lucide-react'
 import { PROVIDER_PRESETS, TARGET_LANGUAGES, type LLMConfig, type ModelInfo } from '@shared/types'
 import { api } from '../../api'
+import { requestUpdateFlow } from '../update/UpdateFlowHost'
 import { useApp } from '../../stores/app'
 import {
   Button,
@@ -51,6 +52,78 @@ export function SettingsModal(): JSX.Element {
   const theme = useApp((s) => s.theme)
   const setTheme = useApp((s) => s.setTheme)
   const toastMsg = useApp((s) => s.toastMsg)
+  // ---- v2.1.0：检查更新（需求 11）+ 配置导出 / 导入（需求 4、5）----
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [configBusy, setConfigBusy] = useState(false)
+
+  const checkUpdateNow = async (): Promise<void> => {
+    setCheckingUpdate(true)
+    try {
+      const r = await api.checkUpdate()
+      if (r.best) {
+        // 关掉设置弹窗，让顶层更新流程（详情 → 配置）独占界面
+        setOpen(false)
+        requestUpdateFlow(r)
+      } else {
+        toastMsg(`已是最新版本（当前 ${r.current}）`, 'info')
+      }
+    } catch (e) {
+      toastMsg(`检查更新失败：${e instanceof Error ? e.message : String(e)}`, 'error')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const doExportConfig = async (): Promise<void> => {
+    setConfigBusy(true)
+    try {
+      const r = await api.exportConfig()
+      if (r.cancelled) return
+      if (!r.ok) {
+        toastMsg(r.error ?? '导出配置失败', 'error')
+        return
+      }
+      const c = r.counts
+      toastMsg(
+        `配置已导出：术语表 ${c?.glossary ?? 0} 条、翻译记忆 ${c?.memory ?? 0} 条${
+          c?.apiKeyIncluded ? `，API Key 为${c.apiKeyEncrypted ? '本机加密' : '未加密'}形式` : ''
+        }`,
+        'success'
+      )
+    } finally {
+      setConfigBusy(false)
+    }
+  }
+
+  const doImportConfig = async (): Promise<void> => {
+    setConfigBusy(true)
+    try {
+      const r = await api.importConfig()
+      if (r.cancelled) return
+      if (!r.ok) {
+        toastMsg(r.error ?? '导入配置失败', 'error')
+        return
+      }
+      toastMsg(
+        `配置已导入：设置 ${r.settingsApplied?.length ?? 0} 项、术语 +${r.glossaryAdded ?? 0}、记忆 ${
+          r.memoryUpserted ?? 0
+        }${r.glossarySkipped ? `（跳过重复 ${r.glossarySkipped}）` : ''}`,
+        'success'
+      )
+      if (r.warnings?.length) toastMsg(r.warnings[0], 'info')
+      // 让界面立刻反映刚导入的配置
+      try {
+        const cfg = (await api.getLlmConfig()) as LLMConfig
+        setForm(cfg)
+        const s = (await api.getSettings()) as { theme?: 'light' | 'dark' | 'system' }
+        if (s?.theme) setTheme(s.theme)
+      } catch {
+        /* 刷新失败不影响导入结果 */
+      }
+    } finally {
+      setConfigBusy(false)
+    }
+  }
 
   const [form, setForm] = useState<LLMConfig>(llmConfig)
   const [models, setModels] = useState<ModelInfo[]>([])
@@ -343,6 +416,25 @@ export function SettingsModal(): JSX.Element {
               ]}
             />
             <Tooltip content="主题写入 settings.theme，与侧边栏底部的主题切换共用同一份配置。" />
+          </div>
+        </SectionCard>
+
+        {/* ⑤ 更新与配置 —— 需求 11（检查更新）+ 需求 4、5（导出 / 导入配置）*/}
+        <SectionCard title="更新与配置" subtitle="检查新版本，或备份 / 恢复你的配置">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button size="sm" variant="soft" disabled={checkingUpdate} onClick={() => void checkUpdateNow()}>
+              {checkingUpdate ? <Spinner className="h-3.5 w-3.5" /> : <RefreshIcon className="h-3.5 w-3.5" />}
+              {checkingUpdate ? '检查中…' : '检查更新'}
+            </Button>
+            <Button size="sm" variant="soft" disabled={configBusy} onClick={() => void doExportConfig()}>
+              <Download className="h-3.5 w-3.5" strokeWidth={2} />
+              导出配置
+            </Button>
+            <Button size="sm" variant="soft" disabled={configBusy} onClick={() => void doImportConfig()}>
+              <Upload className="h-3.5 w-3.5" strokeWidth={2} />
+              导入配置
+            </Button>
+            <Tooltip content="配置包含：设置（含本机加密的 API Key）、术语表、翻译记忆；不含项目与翻译条目。导入前会自动备份当前配置。" />
           </div>
         </SectionCard>
       </div>

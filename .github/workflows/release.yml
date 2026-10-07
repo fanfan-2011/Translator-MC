@@ -2,12 +2,18 @@ name: release
 
 # 打 tag（形如 v2.1.0）即触发：在 GitHub 的 Windows runner 上构建安装包与便携 zip，
 # 然后自动创建/更新对应的 Release 并附上两个产物。
-# 为什么放 CI：本地传 130MB+ 的附件又慢又容易中断（上次就断过一回），CI 在本机内网直传快得多。
+#
+# 为什么放 CI：本地传 130MB+ 的附件又慢又容易中断（上次就断过一回），CI 从内网直传快得多。
+#
+# 两个踩过的坑（改这个文件前务必知道）：
+#  1) electron-builder 只要看到 git tag 就会**自作主张去发布**，没 token 就整步失败 ——
+#     必须显式 `--publish never`，发布交给下面的 softprops 步骤。
+#  2) 版本号从 package.json 读，**不要**依赖 github.ref_name：这样用 workflow_dispatch
+#     手动重跑（默认分支上）也能正确发布到 v<version>，不必移动已经推送出去的 tag。
 on:
   push:
     tags:
       - 'v*'
-  # 允许手动重跑（修工作流或补传时用）
   workflow_dispatch:
 
 permissions:
@@ -32,13 +38,26 @@ jobs:
       - name: Typecheck (gate)
         run: npm run typecheck
 
-      # build:win = build-help.js（把 help/ 打包成 help.tmhelp）→ electron-vite build → electron-builder --win
+      - name: Read version from package.json
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (node -p "require('./package.json').version").Trim()
+          $tag = "v$v"
+          Write-Output "版本 $v -> 标签 $tag"
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      # build-help.js（把 help/ 打包成 help.tmhelp）→ electron-vite build → electron-builder
       # 目标见 package.json 的 build.win.target = ["nsis","zip"]，一条命令同时出：
       #   release/Translator-MC-Setup-win-<version>.exe
       #   release/Translator-MC-mobile-win-<version>.zip
-      # 注意：这一步**不传 GH_TOKEN**，避免 electron-builder 自作主张去发布。
       - name: Build Windows artifacts
-        run: npm run build:win
+        shell: pwsh
+        run: |
+          node scripts/build-help.js
+          npx electron-vite build
+          npx electron-builder --win --publish never
 
       - name: Collect artifacts
         shell: pwsh
@@ -49,21 +68,22 @@ jobs:
       # Release notes 直接取 updatelog.md 里对应版本那一段，避免两处维护
       - name: Extract release notes from updatelog.md
         shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          $ver = '${{ github.ref_name }}'.TrimStart('v')
           $md = Get-Content -Raw -Encoding utf8 updatelog.md
-          $pattern = "(?ms)^## v$([regex]::Escape($ver))[^\r\n]*\r?\n(.*?)(?=^## |\z)"
+          $pattern = "(?ms)^## v$([regex]::Escape($env:VERSION))[^\r\n]*\r?\n(.*?)(?=^## |\z)"
           $m = [regex]::Match($md, $pattern)
-          if (-not $m.Success) { throw "updatelog.md 中找不到 v$ver 版本段" }
-          $body = $m.Groups[1].Value.Trim()
-          Set-Content -Path release-notes.md -Value $body -Encoding utf8
+          if (-not $m.Success) { throw "updatelog.md 中找不到 v$($env:VERSION) 版本段" }
+          Set-Content -Path release-notes.md -Value $m.Groups[1].Value.Trim() -Encoding utf8
           Write-Output "----- release-notes.md -----"
           Get-Content release-notes.md
 
       - name: Publish release with assets
         uses: softprops/action-gh-release@v2
         with:
-          name: Translator MC ${{ github.ref_name }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Translator MC ${{ steps.ver.outputs.tag }}
           body_path: release-notes.md
           draft: false
           prerelease: false
@@ -76,5 +96,6 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
         run: |
-          gh release view '${{ github.ref_name }}' --json tagName,name,assets --jq '.assets[] | "\(.name)  \(.size) bytes"'
+          gh release view $env:TAG --json tagName,isDraft,isPrerelease,assets --jq '"tag=\(.tagName) draft=\(.isDraft) prerelease=\(.isPrerelease)", (.assets[] | "\(.name)  \(.size) bytes  \(.state)")'

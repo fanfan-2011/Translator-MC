@@ -19,8 +19,10 @@ const FILES = [
   'tsconfig.node.json',
   'tsconfig.web.json',
   'package.json',
-  '.npmrc',
-  '使用说明.md'
+  '.npmrc'
+  // 注意：**不要**把「使用说明.md」放进来。
+  // 它由用户在副本里维护（副本是精简版、源目录还是旧长版），曾经列在这里，
+  // 结果每次同步都静默覆盖掉用户手改的内容（已踩两次）。
 ]
 const DRY = process.argv.includes('--dry')
 const log = { added: [], updated: [], deleted: [], kept: [] }

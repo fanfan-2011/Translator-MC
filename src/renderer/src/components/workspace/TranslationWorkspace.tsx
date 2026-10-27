@@ -122,8 +122,11 @@ export function TranslationWorkspace(): JSX.Element {
 
   const startReview = async (): Promise<void> => {
     if (!projectId || !ensureAiReady()) return
+    // 有勾选就只审勾选的；一条都没勾才审全部（与「翻译」按钮的口径一致）
+    const selectedCount = entries.filter((e) => e.selected).length
+    toastMsg(selectedCount > 0 ? `只审校勾选的 ${selectedCount} 条` : '未勾选条目，将审校全部已翻译条目', 'info')
     setReviewing({ taskId: '', status: 'running', done: 0, total: 0, failed: 0 })
-    await api.startReview(projectId)
+    await api.startReview(projectId, { scope: selectedCount > 0 ? 'selected' : 'all' })
   }
 
   const clearAll = (): void => {

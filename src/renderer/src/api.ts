@@ -91,7 +91,7 @@ export const api = {
   onTranslateDone: (cb: (data: TranslateDone) => void): (() => void) =>
     window.api.onTranslateDone(cb as (d: unknown) => void),
 
-  startReview: (projectId: string): Promise<unknown> => window.api.startReview(projectId),
+  startReview: (projectId: string, options?: unknown): Promise<unknown> => window.api.startReview(projectId, options),
   pauseReview: (taskId: string): Promise<void> => window.api.pauseReview(taskId) as Promise<void>,
   resumeReview: (taskId: string): Promise<void> => window.api.resumeReview(taskId) as Promise<void>,
   cancelReview: (taskId: string): Promise<void> => window.api.cancelReview(taskId) as Promise<void>,

@@ -62,6 +62,11 @@ export interface CoreOptions {
   headers?: Record<string, string>
   /** 空闲超时；每收到数据就重置 */
   idleTimeoutMs?: number
+  /**
+   * 连接（到收到响应头）的兜底超时。默认 CONNECT_TIMEOUT_MS。
+   * 大文件下载要短（10s，CDN 连不上别干等）；LLM 请求要长（模型思考时首字节可能几十秒）。
+   */
+  connectTimeoutMs?: number
   /** 取消令牌 */
   signal?: AbortSignal
 }
@@ -156,6 +161,7 @@ function wire(
   }
   refresh()
   // 连接阶段的兜底：收到响应头就撤（之后由空闲超时接管）
+  const connectMs = opts.connectTimeoutMs ?? CONNECT_TIMEOUT_MS
   connectTimer.id = setTimeout(() => {
     timedOut = true
     try {
@@ -163,8 +169,8 @@ function wire(
     } catch {
       /* 已结束 */
     }
-    finishFail(new NetError(`连接超时（${CONNECT_TIMEOUT_MS}ms 内未收到响应）`, 'timeout'))
-  }, CONNECT_TIMEOUT_MS)
+    finishFail(new NetError(`连接超时（${connectMs}ms 内未收到响应）`, 'timeout'))
+  }, connectMs)
 
   request.on('response', (res) => {
     stream = res as ReadableLike
@@ -195,11 +201,35 @@ function wire(
   return { clearTimer }
 }
 
-/** GET 并缓冲整个响应体（JSON / 文本 / 大小探测用） */
-export function httpGet(url: string, opts: CoreOptions = {}): Promise<NetResponse> {
+export interface RequestOptions extends CoreOptions {
+  method?: string
+  /** 请求体（字符串或 Buffer）；有体时自动补 Content-Length */
+  body?: string | Buffer
+  redirect?: 'follow' | 'manual' | 'error'
+}
+
+/**
+ * 通用请求（GET / POST / …），缓冲整个响应体。
+ *
+ * LLM 的 `/models` 与 `/chat/completions` 也走这里 —— 和更新模块共用同一个出口，
+ * 才能一并获得 Chromium 网络栈的能力（系统代理 / PAC / 系统证书库 / IPv6 回退）。
+ * 之前 LLM 用的是 Node 的 fetch，在配了代理或服务跑在局域网/另一台机器的环境里会直接
+ * `TypeError: fetch failed`，且报错信息对用户毫无意义。
+ */
+export function httpRequest(url: string, opts: RequestOptions = {}): Promise<NetResponse> {
   const idleMs = opts.idleTimeoutMs ?? DEFAULT_TIMEOUT_MS
   return new Promise<NetResponse>((resolve, reject) => {
-    const request = net.request({ method: 'GET', url, redirect: 'follow' })
+    const bodyBuf =
+      opts.body === undefined ? undefined : Buffer.isBuffer(opts.body) ? opts.body : Buffer.from(opts.body, 'utf8')
+    const request = net.request({
+      method: opts.method ?? 'GET',
+      url,
+      redirect: opts.redirect ?? 'follow',
+      // 请求体走 uploadData，由 Chromium 自己算 Content-Length。
+      // 千万不要手动 setHeader('Content-Length') —— 它是受限头，整个请求会被拒成
+      // net::ERR_INVALID_ARGUMENT（实测踩过，且不产生任何网络请求）。
+      ...(bodyBuf ? { uploadData: [{ type: 'rawData' as const, bytes: bodyBuf }] } : {})
+    })
     applyHeaders(request, opts.headers)
     let status = 0
     let headers: Record<string, string> = {}
@@ -216,6 +246,11 @@ export function httpGet(url: string, opts: CoreOptions = {}): Promise<NetRespons
     })
     request.end()
   })
+}
+
+/** GET 并缓冲整个响应体（JSON / 文本 / 大小探测用） */
+export function httpGet(url: string, opts: CoreOptions = {}): Promise<NetResponse> {
+  return httpRequest(url, opts)
 }
 
 export interface StreamHandle {
@@ -363,4 +398,33 @@ export function textOf(res: NetResponse): string {
 
 export function jsonOf<T>(res: NetResponse): T {
   return JSON.parse(res.body.toString('utf8')) as T
+}
+
+/**
+ * 把网络层错误翻译成用户能照做的中文。
+ * Chromium 的原始文案是 `net::ERR_CONNECTION_REFUSED` 这种，直接弹给用户等于没提示。
+ */
+const NET_ERROR_HINTS: Array<[RegExp, string]> = [
+  [
+    /ERR_CONNECTION_REFUSED|ECONNREFUSED/i,
+    '连接被拒绝：这个地址/端口上没有服务在监听。请检查地址与端口是否写对、服务是否已启动；若服务跑在另一台电脑上，请填它的局域网 IP 而不是 localhost'
+  ],
+  [/ERR_NAME_NOT_RESOLVED|ENOTFOUND/i, '域名解析失败：找不到这个主机，请检查地址拼写或网络/DNS'],
+  [/ERR_CONNECTION_TIMED_OUT|ERR_TIMED_OUT|ETIMEDOUT/i, '连接超时：对方没有响应，请检查地址是否可达、是否需要代理'],
+  [/ERR_INTERNET_DISCONNECTED|ENETUNREACH/i, '网络未连接或网络不可达'],
+  [/ERR_CONNECTION_RESET|ERR_EMPTY_RESPONSE|ECONNRESET/i, '连接被对方中断'],
+  [/ERR_ADDRESS_UNREACHABLE|EHOSTUNREACH/i, '地址不可达：检查服务是否在同一局域网，或是否需要代理'],
+  [/ERR_CERT|CERT_|ERR_SSL/i, 'HTTPS 证书校验失败：请检查证书是否有效'],
+  [/ERR_PROXY/i, '代理服务器异常：请检查系统代理设置']
+]
+
+export function explainNetError(e: unknown): string {
+  if (e instanceof NetError) {
+    if (e.kind === 'timeout' || e.kind === 'aborted') return e.message
+  }
+  const raw = e instanceof Error ? e.message : String(e)
+  for (const [re, hint] of NET_ERROR_HINTS) {
+    if (re.test(raw)) return `${hint}（原始错误：${raw}）`
+  }
+  return raw
 }

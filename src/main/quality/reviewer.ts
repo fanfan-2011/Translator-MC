@@ -26,6 +26,11 @@ export type ReviewProgress = {
 
 export type ReviewProgressCallback = (p: ReviewProgress) => void
 
+export interface ReviewOptions {
+  /** all = 审校全部已翻译条目；selected = 只审校表格里勾选的条目 */
+  scope?: 'all' | 'selected'
+}
+
 const REVIEW_THRESHOLD = 70
 
 // Group entries so every LLM batch is homogeneous in package type (avoids
@@ -56,9 +61,15 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function reviewProject(
   projectId: string,
   config: LLMConfig,
-  onProgress?: ReviewProgressCallback
+  onProgress?: ReviewProgressCallback,
+  options: ReviewOptions = {}
 ): Promise<ReviewResult> {
-  const allEntries = db.listEntries(projectId).filter((e) => e.targetText && e.targetText.trim() !== '')
+  const allEntries = db.listEntries(projectId).filter((e) => {
+    if (!e.targetText || e.targetText.trim() === '') return false
+    // 勾选了条目就只审这些 —— 之前这里无条件审全项目，用户勾两条也会审 80+ 条。
+    if (options.scope === 'selected' && !e.selected) return false
+    return true
+  })
   const packages = db.listPackages(projectId)
   const typeOf = (e: TranslationEntry): PackageType => packages.find((p) => p.id === e.packageId)?.type ?? 'unknown'
 

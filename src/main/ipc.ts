@@ -157,10 +157,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('translate:cancel', (_e, taskId: string) => cancelTask(taskId))
 
   // ---------- Review ----------
-  ipcMain.handle('review:start', (event, projectId: string) => {
+  ipcMain.handle('review:start', (event, projectId: string, options?: { scope?: 'all' | 'selected' }) => {
     const config = loadLlmConfig()
     const sender = event.sender
-    void reviewProject(projectId, config, (p) => sender.send('review:progress', p))
+    void reviewProject(projectId, config, (p) => sender.send('review:progress', p), options ?? {})
       .then((r) => sender.send('review:done', r))
       .catch((e) => sender.send('review:done', { ok: false, error: e instanceof Error ? e.message : String(e) }))
     return { ok: true }

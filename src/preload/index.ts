@@ -77,7 +77,8 @@ const api = {
   onTranslateDone: (cb: (data: unknown) => void): (() => void) => on('translate:done', cb),
 
   // review
-  startReview: (projectId: string): Promise<unknown> => ipcRenderer.invoke('review:start', projectId),
+  startReview: (projectId: string, options?: unknown): Promise<unknown> =>
+    ipcRenderer.invoke('review:start', projectId, options),
   pauseReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:pause', taskId),
   resumeReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:resume', taskId),
   cancelReview: (taskId: string): Promise<unknown> => ipcRenderer.invoke('review:cancel', taskId),

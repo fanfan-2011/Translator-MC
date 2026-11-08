@@ -116,6 +116,10 @@ export function TranslationWorkspace(): JSX.Element {
 
   const startTranslate = async (reTranslate: boolean): Promise<void> => {
     if (!projectId || !ensureAiReady()) return
+    if (!reTranslate && !entries.some((e) => e.selected)) {
+      toastMsg('请先勾选要翻译的条目', 'info')
+      return
+    }
     setTask({ taskId: '', status: 'running', done: 0, total: 0, failed: 0, progress: 0 })
     await api.startTranslate(projectId, { scope: reTranslate ? 'all' : 'selected', reTranslate })
   }
@@ -131,10 +135,13 @@ export function TranslationWorkspace(): JSX.Element {
 
   const clearAll = (): void => {
     if (!projectId) return
-    if (window.confirm('确定清除所有译文吗？（自带中文不会被清除）')) {
-      void api.clearAllTargets(projectId).then(async () => {
+    // 有勾选只清勾选的（自带中文不在里面）；一条没勾才清全部
+    const ids = entries.filter((e) => e.selected && e.status !== 'builtin').map((e) => e.id)
+    const scopeText = ids.length > 0 ? `选中的 ${ids.length} 条` : '全部'
+    if (window.confirm(`确定清除${scopeText}译文吗？（自带中文不会被清除）`)) {
+      void api.clearAllTargets(projectId, ids.length > 0 ? ids : undefined).then(async () => {
         await loadProjectData(projectId)
-        toastMsg('已清除译文', 'success')
+        toastMsg(`已清除${scopeText}译文`, 'success')
       })
     }
   }

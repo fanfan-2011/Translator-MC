@@ -426,6 +426,16 @@ export function clearAllTargets(projectId: string): void {
   )
 }
 
+/** 只清除指定条目（表格勾选后用）；自带中文（builtin）永远跳过 */
+export function clearTargetsByIds(ids: string[]): void {
+  if (ids.length === 0) return
+  const marks = ids.map(() => '?').join(',')
+  run(
+    `UPDATE translation_entries SET target_text = '', status = 'pending', quality_score = NULL, updated_at = ? WHERE id IN (${marks}) AND status != 'builtin'`,
+    [now(), ...ids]
+  )
+}
+
 // ---------- Glossary ----------
 
 export function insertGlossary(g: Omit<GlossaryEntry, 'id'>): GlossaryEntry {

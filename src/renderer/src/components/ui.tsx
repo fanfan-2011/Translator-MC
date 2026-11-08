@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Minus, X } from 'lucide-react'
 
 /* ------------------------------------------------------------------
@@ -591,6 +592,12 @@ export function EmptyState({
 }
 
 // ---------- Tooltip（标签旁的 ? 悬浮说明）----------
+/**
+ * 说明气泡：按触发点自动选位置。
+ * 以前是 `absolute left-0` —— 靠近窗口右侧时整块溢出、被裁掉（用户截图反馈过）。
+ * 现在挂到 document.body（portal，避开祖先 transform），打开时量一次可用空间：
+ * 水平夹在视口内；下方放不下就翻到上方；滚动/缩放时实时修正。
+ */
 export function Tooltip({
   content,
   align = 'left',
@@ -600,24 +607,81 @@ export function Tooltip({
   align?: 'left' | 'right'
   className?: string
 }): JSX.Element {
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const tipRef = useRef<HTMLSpanElement>(null)
+  const [open, setOpen] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setReady(false)
+      return
+    }
+    const place = (): void => {
+      const anchor = anchorRef.current
+      const tip = tipRef.current
+      if (!anchor || !tip) return
+      const r = anchor.getBoundingClientRect()
+      const margin = 8
+      const gap = 6
+      const w = tip.offsetWidth
+      const h = tip.offsetHeight
+      let left = align === 'right' ? r.right - w : r.left
+      left = Math.max(margin, Math.min(left, window.innerWidth - w - margin))
+      let top = r.bottom + gap
+      if (top + h > window.innerHeight - margin) {
+        const above = r.top - h - gap
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - h - margin)
+      }
+      tip.style.left = `${Math.round(left)}px`
+      tip.style.top = `${Math.round(top)}px`
+      setReady(true)
+    }
+    place()
+    const onMove = (): void => place()
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, align])
+
   return (
-    <span className={`group relative inline-flex shrink-0 ${className}`}>
+    <span
+      ref={anchorRef}
+      className={`inline-flex shrink-0 ${className}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         type="button"
         aria-label="字段说明"
         onClick={(e) => e.preventDefault()}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-line-3 text-[9px] font-semibold leading-none text-muted-4 transition-colors hover:border-accent hover:text-accent focus:outline-none focus-visible:border-accent focus-visible:text-accent"
       >
         ?
       </button>
-      <span
-        role="tooltip"
-        className={`pointer-events-none absolute top-[calc(100%+6px)] z-50 hidden w-max max-w-[248px] rounded-sm border border-line bg-surface px-2.5 py-1.5 text-left text-2xs font-normal leading-relaxed text-muted shadow-menu group-hover:block group-focus-within:block ${
-          align === 'right' ? 'right-0' : 'left-0'
-        }`}
-      >
-        {content}
-      </span>
+      {open
+        ? createPortal(
+            <span
+              ref={tipRef}
+              role="tooltip"
+              className="pointer-events-none fixed z-[999] block w-max rounded-sm border border-line bg-surface px-2.5 py-1.5 text-left text-2xs font-normal leading-relaxed text-muted shadow-menu"
+              style={{ visibility: ready ? 'visible' : 'hidden', maxWidth: 'min(248px, calc(100vw - 16px))' }}
+            >
+              {content}
+            </span>,
+            document.body
+          )
+        : null}
     </span>
   )
 }

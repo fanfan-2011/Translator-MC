@@ -54,7 +54,8 @@ export const api = {
   setSelectedMany: (ids: string[], selected: boolean): Promise<void> =>
     window.api.setSelectedMany(ids, selected) as Promise<void>,
   clearTarget: (id: string): Promise<void> => window.api.clearTarget(id) as Promise<void>,
-  clearAllTargets: (projectId: string): Promise<void> => window.api.clearAllTargets(projectId) as Promise<void>,
+  clearAllTargets: (projectId: string, ids?: string[]): Promise<void> =>
+    window.api.clearAllTargets(projectId, ids) as Promise<void>,
 
   listGlossary: (): Promise<GlossaryEntry[]> => window.api.listGlossary() as Promise<GlossaryEntry[]>,
   addGlossary: (g: Omit<GlossaryEntry, 'id'>): Promise<GlossaryEntry> => window.api.addGlossary(g) as Promise<GlossaryEntry>,

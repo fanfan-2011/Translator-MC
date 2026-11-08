@@ -111,7 +111,10 @@ export function registerIpcHandlers(): void {
     for (const id of ids) db.updateEntrySelected(id, selected)
   })
   ipcMain.handle('entries:clearTarget', (_e, id: string) => db.clearEntryTarget(id))
-  ipcMain.handle('entries:clearAll', (_e, projectId: string) => db.clearAllTargets(projectId))
+  ipcMain.handle('entries:clearAll', (_e, projectId: string, ids?: string[]) =>
+    // 有勾选就只清勾选的；没勾选才清全部
+    Array.isArray(ids) && ids.length > 0 ? db.clearTargetsByIds(ids) : db.clearAllTargets(projectId)
+  )
 
   // ---------- Glossary ----------
   ipcMain.handle('glossary:list', () => db.listGlossary())

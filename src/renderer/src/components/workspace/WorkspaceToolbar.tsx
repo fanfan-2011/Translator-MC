@@ -70,7 +70,7 @@ export function WorkspaceToolbar({
       <div className="h-7 w-px shrink-0 rounded-full bg-line" />
 
       <div className="tsm-toolbar__aux flex shrink-0 items-center gap-2">
-        <Button onClick={() => setExportOpen(true)}>导入/导出</Button>
+        <Button onClick={() => setExportOpen(true)}>导出</Button>
         <Button onClick={() => setIssueOpen(true)}>
           <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.8} />
           问题中心

@@ -35,7 +35,8 @@ const api = {
   setSelectedMany: (ids: string[], selected: boolean): Promise<unknown> =>
     ipcRenderer.invoke('entries:setSelectedMany', ids, selected),
   clearTarget: (id: string): Promise<unknown> => ipcRenderer.invoke('entries:clearTarget', id),
-  clearAllTargets: (projectId: string): Promise<unknown> => ipcRenderer.invoke('entries:clearAll', projectId),
+  clearAllTargets: (projectId: string, ids?: string[]): Promise<unknown> =>
+    ipcRenderer.invoke('entries:clearAll', projectId, ids),
 
   // glossary
   listGlossary: (): Promise<unknown> => ipcRenderer.invoke('glossary:list'),

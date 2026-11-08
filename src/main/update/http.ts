@@ -211,41 +211,49 @@ export interface RequestOptions extends CoreOptions {
 /**
  * 通用请求（GET / POST / …），缓冲整个响应体。
  *
- * LLM 的 `/models` 与 `/chat/completions` 也走这里 —— 和更新模块共用同一个出口，
- * 才能一并获得 Chromium 网络栈的能力（系统代理 / PAC / 系统证书库 / IPv6 回退）。
- * 之前 LLM 用的是 Node 的 fetch，在配了代理或服务跑在局域网/另一台机器的环境里会直接
- * `TypeError: fetch failed`，且报错信息对用户毫无意义。
+ * 这里用 **`net.fetch`**（Chromium 网络栈 + 标准 fetch 语义）而不是 `net.request`：
+ * `net.request` 的 `uploadData` 实测根本发不出请求体 —— 服务端收到的是空体
+ * （content-length: 0），表现为「unexpected end of JSON input / EOF while parsing」，
+ * 换哪个供应商都一样。`net.fetch` 既有 Chromium 的代理/证书/IPv6 能力，body 又不会丢。
  */
-export function httpRequest(url: string, opts: RequestOptions = {}): Promise<NetResponse> {
-  const idleMs = opts.idleTimeoutMs ?? DEFAULT_TIMEOUT_MS
-  return new Promise<NetResponse>((resolve, reject) => {
-    const bodyBuf =
-      opts.body === undefined ? undefined : Buffer.isBuffer(opts.body) ? opts.body : Buffer.from(opts.body, 'utf8')
-    const request = net.request({
-      method: opts.method ?? 'GET',
-      url,
-      redirect: opts.redirect ?? 'follow',
-      // 请求体走 uploadData，由 Chromium 自己算 Content-Length。
-      // 千万不要手动 setHeader('Content-Length') —— 它是受限头，整个请求会被拒成
-      // net::ERR_INVALID_ARGUMENT（实测踩过，且不产生任何网络请求）。
-      ...(bodyBuf ? { uploadData: [{ type: 'rawData' as const, bytes: bodyBuf }] } : {})
-    })
-    applyHeaders(request, opts.headers)
-    let status = 0
-    let headers: Record<string, string> = {}
-    const chunks: Buffer[] = []
+export async function httpRequest(url: string, opts: RequestOptions = {}): Promise<NetResponse> {
+  const timeoutMs = opts.connectTimeoutMs ?? opts.idleTimeoutMs ?? DEFAULT_TIMEOUT_MS
+  const ctrl = new AbortController()
+  const onAbort = (): void => ctrl.abort()
+  if (opts.signal) {
+    if (opts.signal.aborted) ctrl.abort()
+    else opts.signal.addEventListener('abort', onAbort, { once: true })
+  }
 
-    wire(request, opts, idleMs, {
-      onResponse: (res) => {
-        status = res.statusCode ?? 0
-        headers = normHeaders(res.headers as Record<string, string[] | string>)
-      },
-      onData: (chunk) => chunks.push(chunk),
-      onEnd: () => resolve({ status, headers, body: Buffer.concat(chunks) }),
-      onFail: reject
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    ctrl.abort()
+  }, timeoutMs)
+
+  try {
+    const res = await net.fetch(url, {
+      method: opts.method ?? 'GET',
+      headers: opts.headers,
+      body: opts.body,
+      redirect: opts.redirect ?? 'follow',
+      signal: ctrl.signal
     })
-    request.end()
-  })
+    const headers: Record<string, string> = {}
+    res.headers.forEach((v, k) => {
+      headers[k.toLowerCase()] = v
+    })
+    const body = Buffer.from(await res.arrayBuffer())
+    return { status: res.status, headers, body }
+  } catch (e) {
+    if (opts.signal?.aborted) throw new NetError('请求已取消', 'aborted')
+    if (timedOut) throw new NetError(`请求超时（${timeoutMs}ms 内未完成）`, 'timeout')
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new NetError(msg, 'network')
+  } finally {
+    clearTimeout(timer)
+    opts.signal?.removeEventListener('abort', onAbort)
+  }
 }
 
 /** GET 并缓冲整个响应体（JSON / 文本 / 大小探测用） */
